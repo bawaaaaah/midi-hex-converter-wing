@@ -4,9 +4,656 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Convertisseur MIDI ↔ Hex + Mappage Wing</title>
-  <!-- Full interactive version - see local artifacts for complete file if needed -->
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --border: #2d3a4f;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .container { max-width: 960px; margin: 0 auto; }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h1 span { color: var(--accent); }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+    .card h2 {
+      font-size: 1.05rem;
+      margin-bottom: 14px;
+      color: var(--accent);
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 12px;
+      align-items: flex-end;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 100px;
+      flex: 1;
+    }
+    .field label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    select, input[type="number"], input[type="text"] {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 11px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      width: 100%;
+    }
+    select:focus, input:focus { border-color: var(--accent); }
+    input[type="number"] { -moz-appearance: textfield; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button:hover { background: var(--accent-hover); }
+    button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.secondary:hover { background: #1e293b; }
+    .result {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 13px;
+      font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+      font-size: 0.98rem;
+      letter-spacing: 0.4px;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      word-break: break-all;
+      margin-top: 6px;
+    }
+    .result.success { border-color: var(--success); color: var(--success); }
+    .result.error { border-color: #ef4444; color: #f87171; }
+    .result.empty { color: var(--muted); font-style: italic; font-family: inherit; }
+    .help { font-size: 0.75rem; color: var(--muted); margin-top: 7px; }
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .chip {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      padding: 3px 9px;
+      border-radius: 16px;
+      font-size: 0.73rem;
+      cursor: pointer;
+      color: var(--muted);
+    }
+    .chip:hover { border-color: var(--accent); color: var(--text); }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 9px 14px;
+      cursor: pointer;
+      color: var(--muted);
+      border-radius: 8px 8px 0 0;
+      font-size: 0.88rem;
+      font-weight: 500;
+      border: 1px solid transparent;
+      border-bottom: none;
+      background: transparent;
+    }
+    .tab.active {
+      color: var(--text);
+      background: var(--card);
+      border-color: var(--border);
+      border-bottom: 1px solid var(--card);
+      margin-bottom: -1px;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Interactive mapping */
+    .map-section { margin-bottom: 20px; }
+    .map-section h3 {
+      font-size: 0.92rem;
+      color: var(--warning);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .search-box {
+      margin-bottom: 12px;
+    }
+    .search-box input {
+      width: 100%;
+      max-width: 320px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      margin-bottom: 6px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 6px 8px;
+      text-align: left;
+    }
+    th {
+      background: #0f172a;
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+    }
+    tbody tr {
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    tbody tr:hover {
+      background: #243044;
+    }
+    tbody tr:active {
+      background: #1e3a5f;
+    }
+    td code {
+      font-family: 'Cascadia Code', Consolas, monospace;
+      color: var(--success);
+      font-size: 0.78rem;
+    }
+    .click-hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .quick-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .quick-btns button {
+      font-size: 0.78rem;
+      padding: 6px 10px;
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .quick-btns button:hover {
+      border-color: var(--accent);
+      background: #243044;
+    }
+    .note {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.75rem;
+      margin-top: 8px;
+    }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--success);
+      color: #0f1419;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .toast.show { opacity: 1; }
+    @media (max-width: 600px) {
+      .field { min-width: 100%; }
+      .tabs { flex-wrap: wrap; }
+    }
+  </style>
 </head>
 <body>
-  <p>See repository update or download the local midi-hex-converter.html for the full interactive version.</p>
+  <div class="container">
+    <h1>🎹 Convertisseur <span>MIDI ↔ Hex</span> + Mappage Wing</h1>
+    <p class="subtitle">Conversion bidirectionnelle + mappage MIDI interactif de la Behringer Wing</p>
+
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('converter')">Convertisseur</div>
+      <div class="tab" onclick="showTab('mapping')">Mappage Wing (interactif)</div>
+    </div>
+
+    <!-- ==================== TAB CONVERTISSEUR ==================== -->
+    <div id="tab-converter" class="tab-content active">
+
+      <div class="card">
+        <h2>→ MIDI vers Hex</h2>
+        <div class="row">
+          <div class="field">
+            <label>Type de message</label>
+            <select id="msgType" onchange="updateFields()">
+              <option value="cc">Control Change (CC)</option>
+              <option value="pc">Program Change (PGM)</option>
+              <option value="noteon">Note On</option>
+              <option value="noteoff">Note Off</option>
+              <option value="pitch">Pitch Bend</option>
+              <option value="aftertouch">Channel Aftertouch</option>
+              <option value="polyat">Poly Aftertouch</option>
+            </select>
+          </div>
+          <div class="field" style="max-width: 95px;">
+            <label>Canal (1-16)</label>
+            <input type="number" id="channel" min="1" max="16" value="1">
+          </div>
+        </div>
+        <div class="row" id="paramsRow"></div>
+        <div class="row">
+          <button onclick="midiToHex()">Générer Hex</button>
+          <button class="secondary" onclick="copyResult('hexResult')">Copier</button>
+        </div>
+        <div id="hexResult" class="result empty">Le code hexa apparaîtra ici…</div>
+        <p class="help">Format : octets séparés par des espaces (ex. B0 07 7F). Canal 1 = status +0.</p>
+      </div>
+
+      <div class="card">
+        <h2>← Hex vers MIDI</h2>
+        <div class="row">
+          <div class="field">
+            <label>Code hexadécimal</label>
+            <input type="text" id="hexInput" placeholder="ex. B0 07 7F  ou  B0077F  ou  C0 05" spellcheck="false">
+          </div>
+        </div>
+        <div class="row">
+          <button onclick="hexToMidi()">Analyser</button>
+          <button class="secondary" onclick="copyResult('midiResult')">Copier</button>
+        </div>
+        <div id="midiResult" class="result empty">La description MIDI apparaîtra ici…</div>
+        <div class="examples">
+          <span class="chip" onclick="fillHex('B0 07 7F')">B0 07 7F</span>
+          <span class="chip" onclick="fillHex('C0 05')">C0 05</span>
+          <span class="chip" onclick="fillHex('90 3C 7F')">90 3C 7F</span>
+          <span class="chip" onclick="fillHex('C7 00')">Wing Scene CH7</span>
+          <span class="chip" onclick="fillHex('C8 00')">Wing Tag #1</span>
+          <span class="chip" onclick="fillHex('C9 02')">Wing NEXT</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB MAPPING WING ==================== -->
+    <div id="tab-mapping" class="tab-content">
+
+      <div class="card">
+        <h2>Mappage MIDI Behringer Wing — Interactif</h2>
+        <p class="click-hint">Clique sur une ligne pour remplir automatiquement le convertisseur et générer le code hexa.</p>
+
+        <div class="quick-btns">
+          <button onclick="applyWing('pc', 8, 0)">Tag #1 (CH8 PC0)</button>
+          <button onclick="applyWing('pc', 8, 1)">Tag #2</button>
+          <button onclick="applyWing('pc', 9, 1)">GO</button>
+          <button onclick="applyWing('pc', 9, 2)">PREV</button>
+          <button onclick="applyWing('pc', 9, 3)">NEXT</button>
+          <button onclick="applyWing('pc', 7, 0)">Scene index 1</button>
+          <button onclick="applyWing('cc', 2, 12, 127)">Mute CH1</button>
+          <button onclick="applyWing('cc', 1, 12, 95)">Fader CH1 0dB</button>
+        </div>
+
+        <div class="search-box">
+          <input type="text" id="mapSearch" placeholder="Filtrer (ex. mute, dca, tag, fx…)" oninput="filterMap()">
+        </div>
+
+        <!-- Faders / Mute / Pan -->
+        <div class="map-section" data-section="fader">
+          <h3>Faders (CH1) • Mute (CH2) • Pan (CH3)</h3>
+          <table>
+            <thead><tr><th>CC</th><th>Cible</th><th>Actions rapides</th></tr></thead>
+            <tbody>
+              <tr onclick="applyWing('cc',1,12,95)" data-text="fader channel 1"><td><code>12</code></td><td>Channel 1</td><td>Fader CH1 → 0 dB</td></tr>
+              <tr onclick="applyWing('cc',2,12,127)" data-text="mute channel 1"><td><code>12</code></td><td>Channel 1</td><td>Mute CH1</td></tr>
+              <tr onclick="applyWing('cc',3,12,64)" data-text="pan channel 1"><td><code>12</code></td><td>Channel 1</td><td>Pan centre</td></tr>
+              <tr onclick="applyWing('cc',1,13,95)" data-text="fader channel 2"><td><code>13</code></td><td>Channel 2</td><td>Fader CH2</td></tr>
+              <tr onclick="applyWing('cc',2,13,127)" data-text="mute channel 2"><td><code>13</code></td><td>Channel 2</td><td>Mute CH2</td></tr>
+              <tr onclick="applyWing('cc',1,31,95)" data-text="fader channel 20"><td><code>31</code></td><td>Channel 20</td><td>Fader CH20</td></tr>
+              <tr onclick="applyWing('cc',1,44,95)" data-text="fader channel 21"><td><code>44</code></td><td>Channel 21</td><td>Fader CH21</td></tr>
+              <tr onclick="applyWing('cc',1,70,95)" data-text="fader aux 1"><td><code>70</code></td><td>Aux 1</td><td>Fader Aux1</td></tr>
+              <tr onclick="applyWing('cc',1,78,95)" data-text="fader bus 1"><td><code>78</code></td><td>Bus 1</td><td>Fader Bus1</td></tr>
+              <tr onclick="applyWing('cc',1,94,95)" data-text="fader main 1"><td><code>94</code></td><td>Main 1</td><td>Fader Main1</td></tr>
+              <tr onclick="applyWing('cc',1,104,95)" data-text="fader matrix 1"><td><code>104</code></td><td>Matrix 1</td><td>Fader Matrix1</td></tr>
+            </tbody>
+          </table>
+          <p class="note">CC 12–31 = CH1-20 • 44–63 = CH21-40 • 70–77 = Aux • 78–93 = Bus • 94/95 = Main1/2 • 102/103 = Main3/4 • 104–111 = Matrix</p>
+        </div>
+
+        <!-- DCA / Mute Groups -->
+        <div class="map-section" data-section="dca">
+          <h3>DCA Faders (CH4) • Mute Groups (CH5)</h3>
+          <table>
+            <thead><tr><th>CC</th><th>Cible</th><th>Actions</th></tr></thead>
+            <tbody>
+              <tr onclick="applyWing('cc',4,12,95)" data-text="dca 1 fader"><td><code>12</code></td><td>DCA 1</td><td>Fader DCA1</td></tr>
+              <tr onclick="applyWing('cc',5,12,127)" data-text="dca 1 mute"><td><code>12</code></td><td>DCA 1</td><td>Mute DCA1</td></tr>
+              <tr onclick="applyWing('cc',5,28,127)" data-text="mute group 1"><td><code>28</code></td><td>Mute Group 1</td><td>Mute Group 1 ON</td></tr>
+              <tr onclick="applyWing('cc',5,29,127)" data-text="mute group 2"><td><code>29</code></td><td>Mute Group 2</td><td>Mute Group 2 ON</td></tr>
+              <tr onclick="applyWing('cc',5,44,127)" data-text="mute group 5"><td><code>44</code></td><td>Mute Group 5</td><td>Mute Group 5 ON</td></tr>
+            </tbody>
+          </table>
+          <p class="note">CC 12–27 = DCA 1-16 • CC 28–31 = MG 1-4 • CC 44–47 = MG 5-8</p>
+        </div>
+
+        <!-- Custom Controls -->
+        <div class="map-section" data-section="custom">
+          <h3>Custom Controls (CH6)</h3>
+          <table>
+            <thead><tr><th>Type</th><th>Plage</th><th>Exemple</th></tr></thead>
+            <tbody>
+              <tr onclick="applyWing('cc',6,12,64)" data-text="custom rotary layer 1"><td>CC Rotary</td><td><code>12–15</code></td><td>Layer 1 Rotary 1</td></tr>
+              <tr onclick="applyWing('noteon',6,0,127)" data-text="custom button layer 1"><td>Note Button</td><td><code>Note 0–7</code></td><td>Layer 1 Button 1</td></tr>
+              <tr onclick="applyWing('cc',6,16,64)" data-text="custom rotary layer 2"><td>CC Rotary</td><td><code>16–19</code></td><td>Layer 2 Rotary 1</td></tr>
+              <tr onclick="applyWing('noteon',6,8,127)" data-text="custom button layer 2"><td>Note Button</td><td><code>Note 8–15</code></td><td>Layer 2 Button 1</td></tr>
+            </tbody>
+          </table>
+          <p class="note">4 rotaries + 8 boutons par layer (1 à 16)</p>
+        </div>
+
+        <!-- Scene / Show Control -->
+        <div class="map-section" data-section="scene">
+          <h3>Show / Scene Control (le plus utile)</h3>
+          <table>
+            <thead><tr><th>Canal</th><th>Message</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr onclick="applyWing('pc',7,0)" data-text="scene index 1 change"><td><strong>CH7</strong></td><td>PC 0</td><td>Scene index 1</td></tr>
+              <tr onclick="applyWing('pc',7,1)" data-text="scene index 2"><td><strong>CH7</strong></td><td>PC 1</td><td>Scene index 2</td></tr>
+              <tr onclick="applyWing('pc',8,0)" data-text="scene tag 1"><td><strong>CH8</strong></td><td>PC 0</td><td>Scene Tag #1</td></tr>
+              <tr onclick="applyWing('pc',8,1)" data-text="scene tag 2"><td><strong>CH8</strong></td><td>PC 1</td><td>Scene Tag #2</td></tr>
+              <tr onclick="applyWing('pc',8,2)" data-text="scene tag 3"><td><strong>CH8</strong></td><td>PC 2</td><td>Scene Tag #3</td></tr>
+              <tr onclick="applyWing('pc',9,1)" data-text="scene go"><td><strong>CH9</strong></td><td>PC 1</td><td>GO</td></tr>
+              <tr onclick="applyWing('pc',9,2)" data-text="scene prev"><td><strong>CH9</strong></td><td>PC 2</td><td>PREV</td></tr>
+              <tr onclick="applyWing('pc',9,3)" data-text="scene next"><td><strong>CH9</strong></td><td>PC 3</td><td>NEXT</td></tr>
+              <tr onclick="applyWing('pc',9,4)" data-text="scene go prev"><td><strong>CH9</strong></td><td>PC 4</td><td>GO + PREV</td></tr>
+              <tr onclick="applyWing('pc',9,5)" data-text="scene go next"><td><strong>CH9</strong></td><td>PC 5</td><td>GO + NEXT</td></tr>
+            </tbody>
+          </table>
+          <p class="note">
+            Tags : LIBRARY → SHOW → Edit Tag → #1, #2… • Le Show doit être ouvert.<br>
+            Exemple Tag #1 → <code>C8 00</code>
+          </p>
+        </div>
+
+        <!-- FX -->
+        <div class="map-section" data-section="fx">
+          <h3>Paramètres FX (CH9–16)</h3>
+          <table>
+            <thead><tr><th>FX</th><th>Canal</th><th>Exemple</th></tr></thead>
+            <tbody>
+              <tr onclick="applyWing('cc',9,12,127)" data-text="fx1 insert on"><td>FX1</td><td>CH9</td><td>Insert ON</td></tr>
+              <tr onclick="applyWing('cc',9,13,64)" data-text="fx1 mix"><td>FX1</td><td>CH9</td><td>Mix 50%</td></tr>
+              <tr onclick="applyWing('cc',10,12,127)" data-text="fx2 insert"><td>FX2</td><td>CH10</td><td>Insert ON</td></tr>
+            </tbody>
+          </table>
+          <p class="note">FX1–8 : CC12=Insert • CC13=Mix • CC14=Model • CC15-31=Param<br>
+          FX9–16 : CC70=Insert • CC71=Mix • CC72=Model</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="footer">Outil local • Sources : documentation MIDI Wing (Patrick-Gilles Maillot / Behringer) • Clique sur une ligne pour l’utiliser</p>
+  </div>
+
+  <div id="toast" class="toast">Commande appliquée → Convertisseur</div>
+
+  <script>
+    const PARAMS = {
+      cc: [
+        { id: 'ccNum', label: 'N° CC (0-127)', min: 0, max: 127, value: 7 },
+        { id: 'ccVal', label: 'Valeur (0-127)', min: 0, max: 127, value: 127 }
+      ],
+      pc: [
+        { id: 'prog', label: 'Programme (0-127)', min: 0, max: 127, value: 0 }
+      ],
+      noteon: [
+        { id: 'note', label: 'Note (0-127)', min: 0, max: 127, value: 60 },
+        { id: 'vel', label: 'Vélocité (0-127)', min: 0, max: 127, value: 127 }
+      ],
+      noteoff: [
+        { id: 'note', label: 'Note (0-127)', min: 0, max: 127, value: 60 },
+        { id: 'vel', label: 'Vélocité (0-127)', min: 0, max: 127, value: 0 }
+      ],
+      pitch: [
+        { id: 'pitch', label: 'Valeur (0-16383)', min: 0, max: 16383, value: 8192 }
+      ],
+      aftertouch: [
+        { id: 'pressure', label: 'Pression (0-127)', min: 0, max: 127, value: 64 }
+      ],
+      polyat: [
+        { id: 'note', label: 'Note (0-127)', min: 0, max: 127, value: 60 },
+        { id: 'pressure', label: 'Pression (0-127)', min: 0, max: 127, value: 64 }
+      ]
+    };
+
+    function showTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.querySelector(`.tab[onclick="showTab('${name}')"]`).classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+
+    function updateFields() {
+      const type = document.getElementById('msgType').value;
+      const row = document.getElementById('paramsRow');
+      row.innerHTML = '';
+      (PARAMS[type] || []).forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'field';
+        div.innerHTML = `<label>${p.label}</label><input type="number" id="${p.id}" min="${p.min}" max="${p.max}" value="${p.value}">`;
+        row.appendChild(div);
+      });
+    }
+
+    function clamp(val, min, max) { return Math.max(min, Math.min(max, val | 0)); }
+
+    function midiToHex() {
+      const type = document.getElementById('msgType').value;
+      let ch = clamp(parseInt(document.getElementById('channel').value) || 1, 1, 16) - 1;
+      let bytes = [];
+      try {
+        switch (type) {
+          case 'cc':
+            bytes = [0xB0 + ch, clamp(parseInt(document.getElementById('ccNum').value), 0, 127), clamp(parseInt(document.getElementById('ccVal').value), 0, 127)];
+            break;
+          case 'pc':
+            bytes = [0xC0 + ch, clamp(parseInt(document.getElementById('prog').value), 0, 127)];
+            break;
+          case 'noteon':
+            bytes = [0x90 + ch, clamp(parseInt(document.getElementById('note').value), 0, 127), clamp(parseInt(document.getElementById('vel').value), 0, 127)];
+            break;
+          case 'noteoff':
+            bytes = [0x80 + ch, clamp(parseInt(document.getElementById('note').value), 0, 127), clamp(parseInt(document.getElementById('vel').value), 0, 127)];
+            break;
+          case 'pitch': {
+            const pitch = clamp(parseInt(document.getElementById('pitch').value), 0, 16383);
+            bytes = [0xE0 + ch, pitch & 0x7F, (pitch >> 7) & 0x7F];
+            break;
+          }
+          case 'aftertouch':
+            bytes = [0xD0 + ch, clamp(parseInt(document.getElementById('pressure').value), 0, 127)];
+            break;
+          case 'polyat':
+            bytes = [0xA0 + ch, clamp(parseInt(document.getElementById('note').value), 0, 127), clamp(parseInt(document.getElementById('pressure').value), 0, 127)];
+            break;
+        }
+        const hex = bytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+        const el = document.getElementById('hexResult');
+        el.textContent = hex;
+        el.className = 'result success';
+      } catch (e) {
+        showError('hexResult', 'Erreur de conversion');
+      }
+    }
+
+    function hexToMidi() {
+      let raw = document.getElementById('hexInput').value.trim().toUpperCase();
+      raw = raw.replace(/0X/g, '').replace(/[^0-9A-F]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!raw) { showError('midiResult', 'Entrez un code hex'); return; }
+
+      const parts = raw.split(' ').filter(Boolean);
+      const bytes = [];
+      for (const p of parts) {
+        if (p.length > 2) {
+          for (let i = 0; i < p.length; i += 2) bytes.push(parseInt(p.substr(i, 2), 16));
+        } else bytes.push(parseInt(p, 16));
+      }
+      if (bytes.some(isNaN)) { showError('midiResult', 'Hex invalide'); return; }
+
+      const status = bytes[0];
+      const typeNibble = status & 0xF0;
+      const channel = (status & 0x0F) + 1;
+      let desc = '';
+
+      switch (typeNibble) {
+        case 0x80: desc = bytes.length >= 3 ? `Note Off — Canal ${channel} — Note ${bytes[1]} — Vélocité ${bytes[2]}` : `Note Off (incomplet)`; break;
+        case 0x90: desc = bytes.length >= 3 ? `Note On — Canal ${channel} — Note ${bytes[1]} — Vélocité ${bytes[2]}` : `Note On (incomplet)`; break;
+        case 0xA0: desc = bytes.length >= 3 ? `Poly Aftertouch — Canal ${channel} — Note ${bytes[1]} — Pression ${bytes[2]}` : `Poly Aftertouch (incomplet)`; break;
+        case 0xB0: desc = bytes.length >= 3 ? `Control Change (CC) — Canal ${channel} — CC ${bytes[1]} — Valeur ${bytes[2]}` : `CC (incomplet)`; break;
+        case 0xC0: desc = bytes.length >= 2 ? `Program Change — Canal ${channel} — Programme ${bytes[1]}` : `Program Change (incomplet)`; break;
+        case 0xD0: desc = bytes.length >= 2 ? `Channel Aftertouch — Canal ${channel} — Pression ${bytes[1]}` : `Aftertouch (incomplet)`; break;
+        case 0xE0:
+          if (bytes.length >= 3) {
+            const val = bytes[1] | (bytes[2] << 7);
+            desc = `Pitch Bend — Canal ${channel} — Valeur ${val} (centre=8192)`;
+          } else desc = `Pitch Bend (incomplet)`;
+          break;
+        case 0xF0: desc = `System Exclusive / Realtime — ${bytes.map(b => b.toString(16).toUpperCase().padStart(2,'0')).join(' ')}`; break;
+        default: desc = `Status inconnu 0x${status.toString(16).toUpperCase()}`;
+      }
+
+      if (typeNibble === 0xC0 && channel === 7) desc += '  →  Wing : Scene Change (index)';
+      if (typeNibble === 0xC0 && channel === 8) desc += `  →  Wing : Scene Tag #${bytes[1] + 1}`;
+      if (typeNibble === 0xC0 && channel === 9) {
+        const actions = {1:'GO', 2:'PREV', 3:'NEXT', 4:'GO+PREV', 5:'GO+NEXT'};
+        if (actions[bytes[1]]) desc += `  →  Wing Show Control : ${actions[bytes[1]]}`;
+      }
+
+      const el = document.getElementById('midiResult');
+      el.textContent = desc;
+      el.className = 'result success';
+    }
+
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.className = 'result error';
+    }
+
+    function fillHex(val) {
+      document.getElementById('hexInput').value = val;
+      hexToMidi();
+    }
+
+    function copyResult(id) {
+      const text = document.getElementById(id).textContent;
+      if (!text || text.includes('apparaîtra') || text.includes('Erreur') || text.includes('Entrez')) return;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const old = btn.textContent;
+        btn.textContent = '✓ Copié';
+        setTimeout(() => btn.textContent = old, 1200);
+      });
+    }
+
+    // === Interactive mapping ===
+    function applyWing(type, channel, p1, p2) {
+      document.getElementById('msgType').value = type;
+      updateFields();
+      document.getElementById('channel').value = channel;
+
+      if (type === 'cc') {
+        document.getElementById('ccNum').value = p1;
+        document.getElementById('ccVal').value = p2 !== undefined ? p2 : 127;
+      } else if (type === 'pc') {
+        document.getElementById('prog').value = p1;
+      } else if (type === 'noteon' || type === 'noteoff') {
+        document.getElementById('note').value = p1;
+        document.getElementById('vel').value = p2 !== undefined ? p2 : 127;
+      }
+
+      midiToHex();
+      showTab('converter');
+      showToast();
+    }
+
+    function showToast() {
+      const t = document.getElementById('toast');
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function filterMap() {
+      const q = document.getElementById('mapSearch').value.toLowerCase().trim();
+      document.querySelectorAll('.map-section tbody tr').forEach(tr => {
+        const text = (tr.dataset.text || '') + ' ' + tr.textContent.toLowerCase();
+        tr.style.display = !q || text.includes(q) ? '' : 'none';
+      });
+    }
+
+    updateFields();
+  </script>
 </body>
 </html>
