@@ -1,5 +1,7 @@
 # Convertisseur MIDI ↔ Hex + Mappage Behringer Wing
 
+🔗 **Page en ligne :** https://bawaaaaah.github.io/midi-hex-converter-wing/
+
 Outil local (page HTML unique) pour :
 
 - Convertir une commande MIDI (CC, Program Change, Note On/Off, etc.) en code hexadécimal
