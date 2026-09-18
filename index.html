@@ -809,6 +809,42 @@
       });
     }
 
+    // === Number inputs: clamp to min/max + mouse-wheel to increment/decrement ===
+    // Delegated on document so it also covers fields rebuilt by updateFields() (ccNum, ccVal, prog…).
+    function isBoundedNumberInput(el) {
+      return el && el.tagName === 'INPUT' && el.type === 'number' && el.min !== '' && el.max !== '';
+    }
+
+    document.addEventListener('input', (e) => {
+      const el = e.target;
+      if (!isBoundedNumberInput(el)) return;
+      if (el.value === '' || el.value === '-') return; // let the user keep typing/clear the field
+      const min = parseFloat(el.min), max = parseFloat(el.max);
+      const v = clamp(parseFloat(el.value), min, max);
+      if (String(v) !== el.value) el.value = v;
+    });
+
+    document.addEventListener('blur', (e) => {
+      const el = e.target;
+      if (!isBoundedNumberInput(el)) return;
+      if (el.value === '' || isNaN(parseFloat(el.value))) el.value = el.min;
+    }, true);
+
+    document.addEventListener('wheel', (e) => {
+      const el = e.target;
+      if (!isBoundedNumberInput(el)) return;
+      e.preventDefault();
+      const min = parseFloat(el.min), max = parseFloat(el.max);
+      const step = el.step && el.step !== 'any' ? parseFloat(el.step) : 1;
+      let v = parseFloat(el.value);
+      if (isNaN(v)) v = min;
+      v = clamp(v + (e.deltaY < 0 ? step : -step), min, max);
+      el.value = v;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      // Live feedback: re-generate the hex right away when scrolling a converter field.
+      if (el.closest('#tab-converter')) midiToHex();
+    }, { passive: false });
+
     updateFields();
     updateFxSlotHint();
   </script>
