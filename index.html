@@ -216,6 +216,10 @@
       color: var(--success);
       font-size: 0.78rem;
     }
+    /* Reference-only tables (no click action, e.g. FX plugin/parameter lists) */
+    table.reftable tbody tr { cursor: default; }
+    table.reftable tbody tr:hover, table.reftable tbody tr:active { background: transparent; }
+    table.reftable td:last-child { color: var(--muted); font-size: 0.76rem; }
     .click-hint {
       font-size: 0.72rem;
       color: var(--muted);
@@ -243,6 +247,11 @@
       color: var(--muted);
       margin-top: 4px;
     }
+    .note a, .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .note a:hover, .footer a:hover { text-decoration: underline; }
     .footer {
       text-align: center;
       color: var(--muted);
@@ -448,13 +457,93 @@
               <tr onclick="applyWing('cc',10,12,127)" data-text="fx2 insert"><td>FX2</td><td>CH10</td><td>Insert ON</td></tr>
             </tbody>
           </table>
-          <p class="note">FX1–8 : CC12=Insert • CC13=Mix • CC14=Model • CC15-31=Param<br>
-          FX9–16 : CC70=Insert • CC71=Mix • CC72=Model</p>
+          <p class="note">
+            <strong>FX1–8</strong> (FX1→CH9 … FX8→CH16) : CC12=Insert ON/OFF • CC13=Mix • CC14=Modèle • CC15-31=Param 1-17 • CC44-58=Param 18-32<br>
+            <strong>FX9–16</strong> (FX9→CH9 … FX16→CH16, mêmes canaux que FX1-8) : CC70=Insert ON/OFF • CC71=Mix • CC72=Modèle • CC73-95=Param 1-23 • CC102-111=Param 24-33
+          </p>
+
+          <h3 style="margin-top:16px">Modèles disponibles — Effets standards (<code>fx/N/mdl</code>)</h3>
+          <p class="note">Le n° de modèle exact envoyé par CC14/CC72 n'est pas documenté publiquement (probablement l'index dans cette liste) — passe par OSC <code>/fx/N/mdl</code> pour identifier ou forcer un modèle précisément. Liste + paramètres (ordre = ordre des CC Param ci-dessus) tirés de l'appendix « Effects and Plugins' Parameters list » du protocole WING.</p>
+          <table class="reftable">
+<thead><tr><th>Modèle</th><th>Code</th><th>Nb</th><th>Paramètres (ordre CC)</th></tr></thead>
+            <tbody>
+              <tr data-text="none none fx standard"><td>None</td><td><code>NONE</code></td><td>0</td><td>—</td></tr>
+              <tr data-text="external ext fx standard"><td>External</td><td><code>EXT</code></td><td>5</td><td>egrp · ein · emode · lat · trim</td></tr>
+              <tr data-text="graphic eq geq fx standard"><td>Graphic EQ</td><td><code>GEQ</code></td><td>33</td><td>type · 20 · 25 · 31 · 40 · 50 · 63 · 80 · 100 · 125 · 160 · 200 · 250 · 315 · 400 · 500 · 630 · 800 · 1k · 1k25 · 1k6 · 2k · 2k5 · 3k15 · 4k · 5k · 6k3 · 8k · 10k · 12k5 · 16k · 20k · TRIM</td></tr>
+              <tr data-text="pia 560 geq pia fx standard"><td>PIA 560 GEQ</td><td><code>PIA</code></td><td>12</td><td>mix · gain · 31 · 63 · 125 · 250 · 500 · 1k · 2k · 4k · 8k · 16k</td></tr>
+              <tr data-text="triple dynamic eq deq3 fx standard"><td>Triple Dynamic EQ</td><td><code>DEQ3</code></td><td>27</td><td>1-thr · 1-ratio · 1-att · 1-rel · 1-filt · 1-g · 1-f · 1-q · 1-mode · 2-thr · 2-ratio · 2-att · 2-rel · 2-filt · 2-g · 2-f · 2-q · 2-mode · 3-thr · 3-ratio · 3-att · 3-rel · 3-filt · 3-g · 3-f · 3-q · 3-mode</td></tr>
+              <tr data-text="combinator c5-cmb fx standard"><td>Combinator</td><td><code>C5-CMB</code></td><td>32</td><td>thr · gain · ratio · slope · bandsel · att · rel · arel · sbc · sbcon · thr_1 · thr_2 · thr_3 · thr_4 · thr_5 · gain_1 · gain_2 · gain_3 · gain_4 · gain_5 · byp_1 · byp_2 · byp_3 · byp_4 · byp_5 · width_1 · width_2 · width_3 · width_4 · width_5 · mix · $bdsolo</td></tr>
+              <tr data-text="precision limiter limiter fx standard"><td>Precision Limiter</td><td><code>LIMITER</code></td><td>7</td><td>gin · gout · sqz · knee · again · att · rel</td></tr>
+              <tr data-text="speaker manager spkman fx standard"><td>Speaker Manager</td><td><code>SPKMAN</code></td><td>24</td><td>hpf · hptype · lpf · lptype · tiltf · tiltg · phase · invert · dist · pos · dyneq · dynthr · deqratio · deqatt · deqrel · deqfilt · deqg · deqf · deqq · deqmode · lim · limthr · limrms · limrel</td></tr>
+              <tr data-text="2-band deesser de-s2 fx standard"><td>2-Band DeEsser</td><td><code>DE-S2</code></td><td>6</td><td>lo · hi · los · his · gdr · mode</td></tr>
+              <tr data-text="ultra enhancer enhance fx standard"><td>Ultra Enhancer</td><td><code>ENHANCE</code></td><td>13</td><td>stlv · lmf · lmvl · st · m · bass · mid · high · g · solo · bassf · midq · highf</td></tr>
+              <tr data-text="exciter exciter fx standard"><td>Exciter</td><td><code>EXCITER</code></td><td>7</td><td>tune · peak · zfill · timbre · harm · mix · dry</td></tr>
+              <tr data-text="psycho bass p-bass fx standard"><td>Psycho Bass</td><td><code>P-BASS</code></td><td>4</td><td>int · bass · xf · solo</td></tr>
+              <tr data-text="sub octaver sub fx standard"><td>Sub Octaver</td><td><code>SUB</code></td><td>3</td><td>rng · oct1 · oct2</td></tr>
+              <tr data-text="sub monster sub-m fx standard"><td>Sub Monster</td><td><code>SUB-M</code></td><td>7</td><td>mix · freq · bd1 · bd2 · bd3 · bd4 · bd5</td></tr>
+              <tr data-text="velvet imager v_img fx standard"><td>Velvet Imager</td><td><code>V_IMG</code></td><td>5</td><td>wid · st · gain · mode · deep</td></tr>
+              <tr data-text="double vocal double fx standard"><td>Double Vocal</td><td><code>DOUBLE</code></td><td>3</td><td>mode · mix · sprd</td></tr>
+              <tr data-text="pitch fix pcorr fx standard"><td>Pitch Fix</td><td><code>PCORR</code></td><td>15</td><td>spd · amnt · a4 · _c · _db · _d · _eb · _e · _f · _gb · _g · _ab · _a · _bb · _b</td></tr>
+              <tr data-text="rotary speaker rotary fx standard"><td>Rotary Speaker</td><td><code>ROTARY</code></td><td>8</td><td>sw · lo · hi · bal · mix · dist · dac · hac</td></tr>
+              <tr data-text="phaser phaser fx standard"><td>Phaser</td><td><code>PHASER</code></td><td>12</td><td>spd · phase · wave · range · depth · emod · att · hld · rel · mix · stg · reso</td></tr>
+              <tr data-text="tremolo panner panner fx standard"><td>Tremolo Panner</td><td><code>PANNER</code></td><td>9</td><td>att · hld · rel · espd · edep · spd · phase · wave · depth</td></tr>
+              <tr data-text="tape machine tape fx standard"><td>Tape Machine</td><td><code>TAPE</code></td><td>5</td><td>drv · spd · low · hi · out</td></tr>
+              <tr data-text="mood filter mood fx standard"><td>Mood Filter</td><td><code>MOOD</code></td><td>14</td><td>fbase · filt · slope · reso · drv · env · att · hld · rel · mix · lfo · spd · phase · wave</td></tr>
+              <tr data-text="bodyrez body fx standard"><td>Bodyrez</td><td><code>BODY</code></td><td>1</td><td>body</td></tr>
+              <tr data-text="rack amp rackamp fx standard"><td>Rack Amp</td><td><code>RACKAMP</code></td><td>8</td><td>pre · buzz · punch · crunch · out · leq · heq · cab</td></tr>
+              <tr data-text="uk rock amp ukrock fx standard"><td>UK Rock Amp</td><td><code>UKROCK</code></td><td>8</td><td>gain · bass · mid · treb · mstr · out · sag · cab</td></tr>
+              <tr data-text="angel amp angel fx standard"><td>Angel Amp</td><td><code>ANGEL</code></td><td>11</td><td>gain · bass · mid · treb · mstr · out · sag · cab · midb · bri · bt</td></tr>
+              <tr data-text="jazz clean amp jazzc fx standard"><td>Jazz Clean Amp</td><td><code>JAZZC</code></td><td>7</td><td>vol · bass · mid · treb · out · bri · cab</td></tr>
+              <tr data-text="deluxe amp deluxe fx standard"><td>Deluxe Amp</td><td><code>DELUXE</code></td><td>6</td><td>vol · bass · treb · out · sag · cab</td></tr>
+              <tr data-text="soul analogue soul fx standard"><td>Soul Analogue</td><td><code>SOUL</code></td><td>13</td><td>mix · lf · lg · lmf · lmf3 · lmq · lmg · hmf · hmf3 · hmq · hmg · hf · hg</td></tr>
+              <tr data-text="even 88 formant e88 fx standard"><td>Even 88 Formant</td><td><code>E88</code></td><td>15</td><td>mix · lf · lg · lq · lt · lmf · lmg · lmq · hmf · hmg · hmq · hf · hg · hq · ht</td></tr>
+              <tr data-text="even 84 e84 fx standard"><td>Even 84</td><td><code>E84</code></td><td>9</td><td>mix · g · lf · lg · mf · mg · mq · hf · hg</td></tr>
+              <tr data-text="fortissimo110 f110 fx standard"><td>Fortissimo110</td><td><code>F110</code></td><td>16</td><td>mix · peq · lmf · lmg · lmq · lmf3 · hmf · hmg · hmq · hmf3 · shv · lf · lg · hf · hg · g</td></tr>
+              <tr data-text="pulsar pulsar fx standard"><td>Pulsar</td><td><code>PULSAR</code></td><td>17</td><td>mix · eq1 · 1lb · 1latt · 1lf · 1hw · 1hb · 1hf · 1hatt · 1hattf · eq5 · 5lb · 5lf · 5md · 5mf · 5hb · 5hf</td></tr>
+              <tr data-text="mach eq4 mach4 fx standard"><td>Mach EQ4</td><td><code>MACH4</code></td><td>9</td><td>mix · sub · 40 · 160 · 650 · 2k5 · air · airm · again</td></tr>
+            </tbody>
+          </table>
+
+          <h3 style="margin-top:16px">Modèles disponibles — Effets premium (<code>fx/N/mdl</code>)</h3>
+          <table class="reftable">
+<thead><tr><th>Modèle</th><th>Code</th><th>Nb</th><th>Paramètres (ordre CC)</th></tr></thead>
+            <tbody>
+              <tr data-text="none none fx premium"><td>None</td><td><code>NONE</code></td><td>0</td><td>—</td></tr>
+              <tr data-text="external ext fx premium"><td>External</td><td><code>EXT</code></td><td>5</td><td>egrp · ein · emode · lat · trim</td></tr>
+              <tr data-text="hall reverb hall fx premium"><td>Hall Reverb</td><td><code>HALL</code></td><td>11</td><td>pdel · size · dcy · mult · damp · lc · hc · shp · sprd · diff · mspd</td></tr>
+              <tr data-text="room reverb r-oom fx premium"><td>Room Reverb</td><td><code>R-OOM</code></td><td>15</td><td>pdel · size · dcy · mult · damp · lc · hc · shp · sprd · diff · spin · ecl · ecr · efl · efr</td></tr>
+              <tr data-text="chamber reverb chamber fx premium"><td>Chamber Reverb</td><td><code>CHAMBER</code></td><td>15</td><td>pdel · size · dcy · mult · damp · lc · hc · shp · sprd · diff · spin · ecl · ecr · ell · elr</td></tr>
+              <tr data-text="plate reverb plate fx premium"><td>Plate Reverb</td><td><code>PLATE</code></td><td>15</td><td>pdel · size · dcy · mult · damp · lc · hc · att · sprd · diff · spin · ecl · ecr · efl · efr</td></tr>
+              <tr data-text="concert reverb concert fx premium"><td>Concert Reverb</td><td><code>CONCERT</code></td><td>17</td><td>pdel · size · dcy · mult · damp · lc · hc · shp · sprd · diff · depth · rfl · rfr · rfll · rflr · spin · crs</td></tr>
+              <tr data-text="ambiance ambi fx premium"><td>Ambiance</td><td><code>AMBI</code></td><td>9</td><td>pdel · size · dcy · tail · damp · diff · mod · lc · hc</td></tr>
+              <tr data-text="vss3 reverb vss3 fx premium"><td>VSS3 Reverb</td><td><code>VSS3</code></td><td>32</td><td>preset · load · erpdly · ertype · ersize · erpos · erbal · erlc · ercol · erlvl · rvtype · rvwide · rvpdly · dcy · diff · rvbal · rvlvl · ldcy · lmdcy · hmdcy · hdcy · hsoft · lxo · mxo · hxo · lshv · lsdmp · hcut · mtype · mrate · mwid · view</td></tr>
+              <tr data-text="vintage room v-room fx premium"><td>Vintage Room</td><td><code>V-ROOM</code></td><td>14</td><td>pdel · size · dcy · dens · erlvl · lmult · hmult · lc · hc · frz · erl · err · add · lvl</td></tr>
+              <tr data-text="vintage reverb v-rev fx premium"><td>Vintage Reverb</td><td><code>V-REV</code></td><td>9</td><td>pdel · dcy · lmult · hmult · mod · lc · hc · out · trans</td></tr>
+              <tr data-text="vintage plate v-plate fx premium"><td>Vintage Plate</td><td><code>V-PLATE</code></td><td>4</td><td>pdel · dcy · lc · col</td></tr>
+              <tr data-text="blue plate bplate fx premium"><td>Blue Plate</td><td><code>BPLATE</code></td><td>11</td><td>pdel · size · dcy · mult · damp · lc · hc · xover · mdep · msdp · diff</td></tr>
+              <tr data-text="gated reverb gated fx premium"><td>Gated Reverb</td><td><code>GATED</code></td><td>9</td><td>pdel · att · dcy · dens · diff · sprd · lc · hfs · hsg</td></tr>
+              <tr data-text="reverse reverb reverse fx premium"><td>Reverse Reverb</td><td><code>REVERSE</code></td><td>8</td><td>pdel · rise · dcy · diff · sprd · lc · hfs · hsg</td></tr>
+              <tr data-text="delay/reverb del/rev fx premium"><td>Delay/Reverb</td><td><code>DEL/REV</code></td><td>11</td><td>time · feed · fhc · dly · d2r · pdel · size · dcy · damp · rlc · i2r</td></tr>
+              <tr data-text="shimmer reverb shimmer fx premium"><td>Shimmer Reverb</td><td><code>SHIMMER</code></td><td>8</td><td>pdel · size · dcy · lc · hc · damp · shim · shine</td></tr>
+              <tr data-text="spring reverb spring fx premium"><td>Spring Reverb</td><td><code>SPRING</code></td><td>4</td><td>dcy · dens · low · high</td></tr>
+              <tr data-text="dimension crs dimcrs fx premium"><td>Dimension CRS</td><td><code>DIMCRS</code></td><td>6</td><td>sw1 · sw2 · sw3 · sw4 · in · drysw</td></tr>
+              <tr data-text="stereo chorus chorus fx premium"><td>Stereo Chorus</td><td><code>CHORUS</code></td><td>11</td><td>lc · hc · wave · phase · mix · dlyl · dlyr · depl · depr · sprd · spd</td></tr>
+              <tr data-text="stereo flanger chorus fx premium"><td>Stereo Flanger</td><td><code>CHORUS</code></td><td>12</td><td>lc · hc · flc · fhc · mix · dlyl · dlyr · depl · depr · phase · spd · feed</td></tr>
+              <tr data-text="stereo delay st-dl fx premium"><td>Stereo Delay</td><td><code>ST-DL</code></td><td>10</td><td>time · mode · fact · pat · offset · feed · flc · fhc · lc · hc</td></tr>
+              <tr data-text="ultratap delay tap-dl fx premium"><td>UltraTap Delay</td><td><code>TAP-DL</code></td><td>10</td><td>time · rep · slp · fact · pdel · mode · wid · diff · lc · hc</td></tr>
+              <tr data-text="tape delay tape-dl fx premium"><td>Tape Delay</td><td><code>TAPE-DL</code></td><td>4</td><td>time · sust · drv · wf</td></tr>
+              <tr data-text="oilcan delay oilcan fx premium"><td>OilCan Delay</td><td><code>OILCAN</code></td><td>4</td><td>time · sust · wb · tone</td></tr>
+              <tr data-text="bbd delay bbd-dl fx premium"><td>BBD Delay</td><td><code>BBD-DL</code></td><td>2</td><td>dly · feed</td></tr>
+              <tr data-text="stereo pitch pitch fx premium"><td>Stereo Pitch</td><td><code>PITCH</code></td><td>6</td><td>semi · cent · dly · lc · hc · mix</td></tr>
+              <tr data-text="dual pitch d-pitch fx premium"><td>Dual Pitch</td><td><code>D-PITCH</code></td><td>12</td><td>semi1 · cent1 · dly1 · pan1 · lvl1 · semi2 · cent2 · dly2 · pan2 · lvl2 · lc · hc</td></tr>
+            </tbody>
+          </table>
+          <p class="note">« Stereo Flanger » partage le même code modèle <code>CHORUS</code> que « Stereo Chorus » dans la doc source (probable réutilisation du même plugin avec d'autres paramètres). Les plugins d'insert canal/bus (Filtres, Gate/Compresseur, EQ) sont documentés séparément — ce ne sont pas des slots FX1-16 et n'ont pas de CC dédié (cf. Sources).</p>
         </div>
       </div>
     </div>
 
-    <p class="footer">Outil local • Sources : documentation MIDI Wing (Patrick-Gilles Maillot / Behringer) • Clique sur une ligne pour l’utiliser</p>
+    <p class="footer">Outil local • Sources : <a href="https://drive.google.com/file/d/1-iptgd2Uxw4qPEbmegG2Sqccf8AbRRfk/view" target="_blank" rel="noopener">WING Remote Protocols</a> (Patrick-Gilles Maillot) • <a href="https://cdn-media.empowertribe.com/60af52fb37824ce891703cfaecf4d8d0/M_BE_0603-AEN_WING%20EFFECTS%20GUIDE%20DARK1_WW.pdf" target="_blank" rel="noopener">WING Effects Guide</a> (Behringer) • Clique sur une ligne pour l’utiliser</p>
   </div>
 
   <div id="toast" class="toast">Commande appliquée → Convertisseur</div>

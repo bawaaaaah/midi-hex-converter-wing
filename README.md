@@ -30,10 +30,11 @@ Full table:
 - CH7 Scene Change (index)
 - CH8 Scene Tag (#1–#128)
 - CH9 Show Control (GO / PREV / NEXT)
-- FX Parameters
+- FX Parameters (CH9–16): Insert / Mix / Model / Param 1-32 (FX1-8) or 1-33 (FX9-16), **plus the full list of the ~62 FX1-16 effect models** (standard and premium effects) with their OSC parameters in CC order, sourced from the *Effects and Plugins' Parameters list* appendix of the WING protocol
 
 ## Sources
-Wing MIDI documentation (Patrick-Gilles Maillot / Behringer World Wiki)
+- [WING Remote Protocols](https://drive.google.com/file/d/1-iptgd2Uxw4qPEbmegG2Sqccf8AbRRfk/view) (Patrick-Gilles Maillot) — full OSC/MIDI/SYSEX protocol, including the Effects and Plugins' Parameters list appendix
+- [WING Effects Guide](https://cdn-media.empowertribe.com/60af52fb37824ce891703cfaecf4d8d0/M_BE_0603-AEN_WING%20EFFECTS%20GUIDE%20DARK1_WW.pdf) (Behringer) — illustrated description of the effects and plugins
 
 ---
 Built to make MIDI control of the Behringer Wing easier (scenes, snapshots, custom controls…).
