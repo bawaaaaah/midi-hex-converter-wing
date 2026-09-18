@@ -1,37 +1,39 @@
-# Convertisseur MIDI ↔ Hex + Mappage Behringer Wing
+# MIDI ↔ Hex Converter + Behringer Wing Mapping
 
-🔗 **Page en ligne :** https://bawaaaaah.github.io/midi-hex-converter-wing/
+*[Lire en français](readme-fr.md)*
 
-Outil local (page HTML unique) pour :
+🔗 **Live page:** https://bawaaaaah.github.io/midi-hex-converter-wing/
 
-- Convertir une commande MIDI (CC, Program Change, Note On/Off, etc.) en code hexadécimal
-- Convertir un code hex en description MIDI lisible
-- Consulter le **mappage MIDI complet de la Behringer Wing** (Faders, Mutes, DCA, Custom Controls, Scènes / Show Control, FX…)
+Local tool (single HTML page) to:
 
-## Utilisation
+- Convert a MIDI command (CC, Program Change, Note On/Off, etc.) into hexadecimal code
+- Convert a hex code into a readable MIDI description
+- Browse the **full MIDI mapping of the Behringer Wing** (Faders, Mutes, DCA, Custom Controls, Scenes / Show Control, FX…)
 
-Ouvre simplement `index.html` dans n’importe quel navigateur moderne.  
-Aucune installation, aucune connexion internet requise.
+## Usage
 
-### Onglet Convertisseur
-- Combobox pour le type de message
-- Canal MIDI 1-16
-- Champs dynamiques selon le type
-- Génération du code hexa propre
-- Analyse inverse (hex → MIDI) avec détection spéciale des commandes Wing (CH7/CH8/CH9)
+Just open `index.html` in any modern browser.
+No installation, no internet connection required.
 
-### Onglet Mappage Wing
-Tableau complet :
+### Converter tab
+- Combobox for the message type
+- MIDI channel 1-16
+- Dynamic fields depending on the type
+- Clean hex code generation
+- Reverse analysis (hex → MIDI) with special detection of Wing commands (CH7/CH8/CH9)
+
+### Wing Mapping tab
+Full table:
 - CH1 Faders / CH2 Mutes / CH3 Pan
 - CH4 DCA Faders / CH5 Mute Groups
 - CH6 Custom Controls
 - CH7 Scene Change (index)
 - CH8 Scene Tag (#1–#128)
 - CH9 Show Control (GO / PREV / NEXT)
-- Paramètres FX
+- FX Parameters
 
 ## Sources
-Documentation MIDI Wing (Patrick-Gilles Maillot / Behringer World Wiki)
+Wing MIDI documentation (Patrick-Gilles Maillot / Behringer World Wiki)
 
 ---
-Créé pour faciliter le contrôle MIDI de la Behringer Wing (scènes, snapshots, custom controls…).
+Built to make MIDI control of the Behringer Wing easier (scenes, snapshots, custom controls…).
