@@ -19,8 +19,8 @@ Aucune installation, aucune connexion internet requise.
 - Combobox pour le type de message
 - Canal MIDI 1-16
 - Champs dynamiques selon le type
-- Génération du code hexa propre
-- Analyse inverse (hex → MIDI) avec détection spéciale des commandes Wing (CH7/CH8/CH9)
+- Génération du code hexa propre, mise à jour en direct
+- Analyse inverse (hex → MIDI) avec détection spéciale des commandes Wing (CH7/CH8/CH9) ; plusieurs messages à la suite (running status, SysEx) sont décodés un par un, et les saisies invalides sont signalées
 
 ### Onglet Mappage Wing
 Tableau complet :
@@ -31,6 +31,7 @@ Tableau complet :
 - CH8 Scene Tag (#1–#128)
 - CH9 Show Control (GO / PREV / NEXT)
 - Paramètres FX (CH9–16) : Insert / Mix / Modèle / Param 1-32 (FX1-8) ou 1-33 (FX9-16), **plus la liste complète des ~62 modèles d'effets FX1-16** (effets standards et premium) avec leurs paramètres OSC dans l'ordre des CC, tirée de l'appendix *Effects and Plugins' Parameters list* du protocole WING
+- Les effets premium ne se chargent que sur FX1-8 : leurs CC ne sont pas générés pour un slot FX9-16
 
 ## Sources
 - [WING Remote Protocols](https://drive.google.com/file/d/1-iptgd2Uxw4qPEbmegG2Sqccf8AbRRfk/view) (Patrick-Gilles Maillot) — protocole OSC/MIDI/SYSEX complet, dont l'appendix Effects and Plugins' Parameters list
