@@ -95,10 +95,12 @@
       border-radius: 8px;
       font-size: 0.9rem;
       font-weight: 500;
+      font-family: inherit;
       cursor: pointer;
       white-space: nowrap;
     }
     button:hover { background: var(--accent-hover); }
+    button:focus-visible, tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     button.secondary {
       background: transparent;
       border: 1px solid var(--border);
@@ -117,9 +119,11 @@
       display: flex;
       align-items: center;
       word-break: break-all;
+      white-space: pre-line;
       margin-top: 6px;
     }
     .result.success { border-color: var(--success); color: var(--success); }
+    .result.warning { border-color: var(--warning); color: var(--warning); }
     .result.error { border-color: #ef4444; color: #f87171; }
     .result.empty { color: var(--muted); font-style: italic; font-family: inherit; }
     .help { font-size: 0.75rem; color: var(--muted); margin-top: 7px; }
@@ -138,7 +142,7 @@
       cursor: pointer;
       color: var(--muted);
     }
-    .chip:hover { border-color: var(--accent); color: var(--text); }
+    .chip:hover { border-color: var(--accent); color: var(--text); background: #1e293b; }
 
     /* Tabs */
     .tabs {
@@ -158,6 +162,7 @@
       border-bottom: none;
       background: transparent;
     }
+    .tab:hover { background: transparent; color: var(--text); }
     .tab.active {
       color: var(--text);
       background: var(--card);
@@ -220,6 +225,7 @@
     table.reftable tbody tr { cursor: default; }
     table.reftable tbody tr:hover, table.reftable tbody tr:active { background: transparent; }
     table.reftable td.param-cell { color: var(--muted); font-size: 0.76rem; }
+    table.reftable.unavailable { opacity: 0.45; }
     .param-chip {
       background: #1e293b;
       border: 1px solid var(--border);
@@ -289,6 +295,7 @@
       z-index: 100;
     }
     .toast.show { opacity: 1; }
+    .toast.error { background: #ef4444; color: #fff; }
     @media (max-width: 600px) {
       .field { min-width: 100%; }
       .tabs { flex-wrap: wrap; }
@@ -300,20 +307,20 @@
     <h1>🎹 Convertisseur <span>MIDI ↔ Hex</span> + Mappage Wing</h1>
     <p class="subtitle">Conversion bidirectionnelle + mappage MIDI interactif de la Behringer Wing</p>
 
-    <div class="tabs">
-      <div class="tab active" onclick="showTab('converter')">Convertisseur</div>
-      <div class="tab" onclick="showTab('mapping')">Mappage Wing (interactif)</div>
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab active" role="tab" aria-selected="true" aria-controls="tab-converter" data-tab="converter">Convertisseur</button>
+      <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="tab-mapping" data-tab="mapping">Mappage Wing (interactif)</button>
     </div>
 
     <!-- ==================== TAB CONVERTISSEUR ==================== -->
-    <div id="tab-converter" class="tab-content active">
+    <div id="tab-converter" class="tab-content active" role="tabpanel">
 
-      <div class="card">
+      <div class="card" id="midiCard">
         <h2>→ MIDI vers Hex</h2>
         <div class="row">
           <div class="field">
-            <label>Type de message</label>
-            <select id="msgType" onchange="updateFields()">
+            <label for="msgType">Type de message</label>
+            <select id="msgType">
               <option value="cc">Control Change (CC)</option>
               <option value="pc">Program Change (PGM)</option>
               <option value="noteon">Note On</option>
@@ -324,63 +331,64 @@
             </select>
           </div>
           <div class="field" style="max-width: 95px;">
-            <label>Canal (1-16)</label>
+            <label for="channel">Canal (1-16)</label>
             <input type="number" id="channel" min="1" max="16" value="1">
           </div>
         </div>
         <div class="row" id="paramsRow"></div>
         <div class="row">
-          <button onclick="midiToHex()">Générer Hex</button>
-          <button class="secondary" onclick="copyResult('hexResult')">Copier</button>
+          <button type="button" id="btnGenerate">Générer Hex</button>
+          <button type="button" class="secondary" data-copy="hexResult">Copier</button>
         </div>
         <div id="hexResult" class="result empty">Le code hexa apparaîtra ici…</div>
-        <p class="help">Format : octets séparés par des espaces (ex. B0 07 7F). Canal 1 = status +0.</p>
+        <p class="help">Format : octets séparés par des espaces (ex. B0 07 7F). Canal 1 = status +0. Le code se met à jour à chaque modification.</p>
       </div>
 
       <div class="card">
         <h2>← Hex vers MIDI</h2>
         <div class="row">
           <div class="field">
-            <label>Code hexadécimal</label>
+            <label for="hexInput">Code hexadécimal</label>
             <input type="text" id="hexInput" placeholder="ex. B0 07 7F  ou  B0077F  ou  C0 05" spellcheck="false">
           </div>
         </div>
         <div class="row">
-          <button onclick="hexToMidi()">Analyser</button>
-          <button class="secondary" onclick="copyResult('midiResult')">Copier</button>
+          <button type="button" id="btnAnalyze">Analyser</button>
+          <button type="button" class="secondary" data-copy="midiResult">Copier</button>
         </div>
         <div id="midiResult" class="result empty">La description MIDI apparaîtra ici…</div>
+        <p class="help">Plusieurs messages à la suite sont décodés un par un (running status compris). Entrée = Analyser.</p>
         <div class="examples">
-          <span class="chip" onclick="fillHex('B0 07 7F')">B0 07 7F</span>
-          <span class="chip" onclick="fillHex('C0 05')">C0 05</span>
-          <span class="chip" onclick="fillHex('90 3C 7F')">90 3C 7F</span>
-          <span class="chip" onclick="fillHex('C7 00')">Wing Scene CH7</span>
-          <span class="chip" onclick="fillHex('C8 00')">Wing Tag #1</span>
-          <span class="chip" onclick="fillHex('C9 02')">Wing NEXT</span>
+          <button type="button" class="chip" data-hex="B0 07 7F">B0 07 7F</button>
+          <button type="button" class="chip" data-hex="C0 05">C0 05</button>
+          <button type="button" class="chip" data-hex="90 3C 7F">90 3C 7F</button>
+          <button type="button" class="chip" data-hex="C6 00">Wing Scene index 1 (CH7)</button>
+          <button type="button" class="chip" data-hex="C7 00">Wing Tag #1 (CH8)</button>
+          <button type="button" class="chip" data-hex="C8 03">Wing NEXT (CH9)</button>
         </div>
       </div>
     </div>
 
     <!-- ==================== TAB MAPPING WING ==================== -->
-    <div id="tab-mapping" class="tab-content">
+    <div id="tab-mapping" class="tab-content" role="tabpanel">
 
       <div class="card">
         <h2>Mappage MIDI Behringer Wing — Interactif</h2>
         <p class="click-hint">Clique sur une ligne pour remplir automatiquement le convertisseur et générer le code hexa.</p>
 
         <div class="quick-btns">
-          <button onclick="applyWing('pc', 8, 0)">Tag #1 (CH8 PC0)</button>
-          <button onclick="applyWing('pc', 8, 1)">Tag #2</button>
-          <button onclick="applyWing('pc', 9, 1)">GO</button>
-          <button onclick="applyWing('pc', 9, 2)">PREV</button>
-          <button onclick="applyWing('pc', 9, 3)">NEXT</button>
-          <button onclick="applyWing('pc', 7, 0)">Scene index 1</button>
-          <button onclick="applyWing('cc', 2, 12, 127)">Mute CH1</button>
-          <button onclick="applyWing('cc', 1, 12, 95)">Fader CH1 0dB</button>
+          <button type="button" data-wing="pc,8,0">Tag #1 (CH8 PC0)</button>
+          <button type="button" data-wing="pc,8,1">Tag #2</button>
+          <button type="button" data-wing="pc,9,1">GO</button>
+          <button type="button" data-wing="pc,9,2">PREV</button>
+          <button type="button" data-wing="pc,9,3">NEXT</button>
+          <button type="button" data-wing="pc,7,0">Scene index 1</button>
+          <button type="button" data-wing="cc,2,12,127">Mute CH1</button>
+          <button type="button" data-wing="cc,1,12,95">Fader CH1 0dB</button>
         </div>
 
         <div class="search-box">
-          <input type="text" id="mapSearch" placeholder="Filtrer (ex. mute, dca, tag, fx…)" oninput="filterMap()">
+          <input type="text" id="mapSearch" placeholder="Filtrer (ex. mute, dca, tag, fx…)" aria-label="Filtrer le mappage">
         </div>
 
         <!-- Faders / Mute / Pan -->
@@ -389,17 +397,17 @@
           <table>
             <thead><tr><th>CC</th><th>Cible</th><th>Actions rapides</th></tr></thead>
             <tbody>
-              <tr onclick="applyWing('cc',1,12,95)" data-text="fader channel 1"><td><code>12</code></td><td>Channel 1</td><td>Fader CH1 → 0 dB</td></tr>
-              <tr onclick="applyWing('cc',2,12,127)" data-text="mute channel 1"><td><code>12</code></td><td>Channel 1</td><td>Mute CH1</td></tr>
-              <tr onclick="applyWing('cc',3,12,64)" data-text="pan channel 1"><td><code>12</code></td><td>Channel 1</td><td>Pan centre</td></tr>
-              <tr onclick="applyWing('cc',1,13,95)" data-text="fader channel 2"><td><code>13</code></td><td>Channel 2</td><td>Fader CH2</td></tr>
-              <tr onclick="applyWing('cc',2,13,127)" data-text="mute channel 2"><td><code>13</code></td><td>Channel 2</td><td>Mute CH2</td></tr>
-              <tr onclick="applyWing('cc',1,31,95)" data-text="fader channel 20"><td><code>31</code></td><td>Channel 20</td><td>Fader CH20</td></tr>
-              <tr onclick="applyWing('cc',1,44,95)" data-text="fader channel 21"><td><code>44</code></td><td>Channel 21</td><td>Fader CH21</td></tr>
-              <tr onclick="applyWing('cc',1,70,95)" data-text="fader aux 1"><td><code>70</code></td><td>Aux 1</td><td>Fader Aux1</td></tr>
-              <tr onclick="applyWing('cc',1,78,95)" data-text="fader bus 1"><td><code>78</code></td><td>Bus 1</td><td>Fader Bus1</td></tr>
-              <tr onclick="applyWing('cc',1,94,95)" data-text="fader main 1"><td><code>94</code></td><td>Main 1</td><td>Fader Main1</td></tr>
-              <tr onclick="applyWing('cc',1,104,95)" data-text="fader matrix 1"><td><code>104</code></td><td>Matrix 1</td><td>Fader Matrix1</td></tr>
+              <tr data-wing="cc,1,12,95" data-text="fader channel 1"><td><code>12</code></td><td>Channel 1</td><td>Fader CH1 → 0 dB</td></tr>
+              <tr data-wing="cc,2,12,127" data-text="mute channel 1"><td><code>12</code></td><td>Channel 1</td><td>Mute CH1</td></tr>
+              <tr data-wing="cc,3,12,64" data-text="pan channel 1"><td><code>12</code></td><td>Channel 1</td><td>Pan centre</td></tr>
+              <tr data-wing="cc,1,13,95" data-text="fader channel 2"><td><code>13</code></td><td>Channel 2</td><td>Fader CH2</td></tr>
+              <tr data-wing="cc,2,13,127" data-text="mute channel 2"><td><code>13</code></td><td>Channel 2</td><td>Mute CH2</td></tr>
+              <tr data-wing="cc,1,31,95" data-text="fader channel 20"><td><code>31</code></td><td>Channel 20</td><td>Fader CH20</td></tr>
+              <tr data-wing="cc,1,44,95" data-text="fader channel 21"><td><code>44</code></td><td>Channel 21</td><td>Fader CH21</td></tr>
+              <tr data-wing="cc,1,70,95" data-text="fader aux 1"><td><code>70</code></td><td>Aux 1</td><td>Fader Aux1</td></tr>
+              <tr data-wing="cc,1,78,95" data-text="fader bus 1"><td><code>78</code></td><td>Bus 1</td><td>Fader Bus1</td></tr>
+              <tr data-wing="cc,1,94,95" data-text="fader main 1"><td><code>94</code></td><td>Main 1</td><td>Fader Main1</td></tr>
+              <tr data-wing="cc,1,104,95" data-text="fader matrix 1"><td><code>104</code></td><td>Matrix 1</td><td>Fader Matrix1</td></tr>
             </tbody>
           </table>
           <p class="note">CC 12–31 = CH1-20 • 44–63 = CH21-40 • 70–77 = Aux • 78–93 = Bus • 94/95 = Main1/2 • 102/103 = Main3/4 • 104–111 = Matrix</p>
@@ -411,11 +419,11 @@
           <table>
             <thead><tr><th>CC</th><th>Cible</th><th>Actions</th></tr></thead>
             <tbody>
-              <tr onclick="applyWing('cc',4,12,95)" data-text="dca 1 fader"><td><code>12</code></td><td>DCA 1</td><td>Fader DCA1</td></tr>
-              <tr onclick="applyWing('cc',5,12,127)" data-text="dca 1 mute"><td><code>12</code></td><td>DCA 1</td><td>Mute DCA1</td></tr>
-              <tr onclick="applyWing('cc',5,28,127)" data-text="mute group 1"><td><code>28</code></td><td>Mute Group 1</td><td>Mute Group 1 ON</td></tr>
-              <tr onclick="applyWing('cc',5,29,127)" data-text="mute group 2"><td><code>29</code></td><td>Mute Group 2</td><td>Mute Group 2 ON</td></tr>
-              <tr onclick="applyWing('cc',5,44,127)" data-text="mute group 5"><td><code>44</code></td><td>Mute Group 5</td><td>Mute Group 5 ON</td></tr>
+              <tr data-wing="cc,4,12,95" data-text="dca 1 fader"><td><code>12</code></td><td>DCA 1</td><td>Fader DCA1</td></tr>
+              <tr data-wing="cc,5,12,127" data-text="dca 1 mute"><td><code>12</code></td><td>DCA 1</td><td>Mute DCA1</td></tr>
+              <tr data-wing="cc,5,28,127" data-text="mute group 1"><td><code>28</code></td><td>Mute Group 1</td><td>Mute Group 1 ON</td></tr>
+              <tr data-wing="cc,5,29,127" data-text="mute group 2"><td><code>29</code></td><td>Mute Group 2</td><td>Mute Group 2 ON</td></tr>
+              <tr data-wing="cc,5,44,127" data-text="mute group 5"><td><code>44</code></td><td>Mute Group 5</td><td>Mute Group 5 ON</td></tr>
             </tbody>
           </table>
           <p class="note">CC 12–27 = DCA 1-16 • CC 28–31 = MG 1-4 • CC 44–47 = MG 5-8</p>
@@ -427,10 +435,10 @@
           <table>
             <thead><tr><th>Type</th><th>Plage</th><th>Exemple</th></tr></thead>
             <tbody>
-              <tr onclick="applyWing('cc',6,12,64)" data-text="custom rotary layer 1"><td>CC Rotary</td><td><code>12–15</code></td><td>Layer 1 Rotary 1</td></tr>
-              <tr onclick="applyWing('noteon',6,0,127)" data-text="custom button layer 1"><td>Note Button</td><td><code>Note 0–7</code></td><td>Layer 1 Button 1</td></tr>
-              <tr onclick="applyWing('cc',6,16,64)" data-text="custom rotary layer 2"><td>CC Rotary</td><td><code>16–19</code></td><td>Layer 2 Rotary 1</td></tr>
-              <tr onclick="applyWing('noteon',6,8,127)" data-text="custom button layer 2"><td>Note Button</td><td><code>Note 8–15</code></td><td>Layer 2 Button 1</td></tr>
+              <tr data-wing="cc,6,12,64" data-text="custom rotary layer 1"><td>CC Rotary</td><td><code>12–15</code></td><td>Layer 1 Rotary 1</td></tr>
+              <tr data-wing="noteon,6,0,127" data-text="custom button layer 1"><td>Note Button</td><td><code>Note 0–7</code></td><td>Layer 1 Button 1</td></tr>
+              <tr data-wing="cc,6,16,64" data-text="custom rotary layer 2"><td>CC Rotary</td><td><code>16–19</code></td><td>Layer 2 Rotary 1</td></tr>
+              <tr data-wing="noteon,6,8,127" data-text="custom button layer 2"><td>Note Button</td><td><code>Note 8–15</code></td><td>Layer 2 Button 1</td></tr>
             </tbody>
           </table>
           <p class="note">4 rotaries + 8 boutons par layer (1 à 16)</p>
@@ -442,21 +450,21 @@
           <table>
             <thead><tr><th>Canal</th><th>Message</th><th>Action</th></tr></thead>
             <tbody>
-              <tr onclick="applyWing('pc',7,0)" data-text="scene index 1 change"><td><strong>CH7</strong></td><td>PC 0</td><td>Scene index 1</td></tr>
-              <tr onclick="applyWing('pc',7,1)" data-text="scene index 2"><td><strong>CH7</strong></td><td>PC 1</td><td>Scene index 2</td></tr>
-              <tr onclick="applyWing('pc',8,0)" data-text="scene tag 1"><td><strong>CH8</strong></td><td>PC 0</td><td>Scene Tag #1</td></tr>
-              <tr onclick="applyWing('pc',8,1)" data-text="scene tag 2"><td><strong>CH8</strong></td><td>PC 1</td><td>Scene Tag #2</td></tr>
-              <tr onclick="applyWing('pc',8,2)" data-text="scene tag 3"><td><strong>CH8</strong></td><td>PC 2</td><td>Scene Tag #3</td></tr>
-              <tr onclick="applyWing('pc',9,1)" data-text="scene go"><td><strong>CH9</strong></td><td>PC 1</td><td>GO</td></tr>
-              <tr onclick="applyWing('pc',9,2)" data-text="scene prev"><td><strong>CH9</strong></td><td>PC 2</td><td>PREV</td></tr>
-              <tr onclick="applyWing('pc',9,3)" data-text="scene next"><td><strong>CH9</strong></td><td>PC 3</td><td>NEXT</td></tr>
-              <tr onclick="applyWing('pc',9,4)" data-text="scene go prev"><td><strong>CH9</strong></td><td>PC 4</td><td>GO + PREV</td></tr>
-              <tr onclick="applyWing('pc',9,5)" data-text="scene go next"><td><strong>CH9</strong></td><td>PC 5</td><td>GO + NEXT</td></tr>
+              <tr data-wing="pc,7,0" data-text="scene index 1 change"><td><strong>CH7</strong></td><td>PC 0</td><td>Scene index 1</td></tr>
+              <tr data-wing="pc,7,1" data-text="scene index 2"><td><strong>CH7</strong></td><td>PC 1</td><td>Scene index 2</td></tr>
+              <tr data-wing="pc,8,0" data-text="scene tag 1"><td><strong>CH8</strong></td><td>PC 0</td><td>Scene Tag #1</td></tr>
+              <tr data-wing="pc,8,1" data-text="scene tag 2"><td><strong>CH8</strong></td><td>PC 1</td><td>Scene Tag #2</td></tr>
+              <tr data-wing="pc,8,2" data-text="scene tag 3"><td><strong>CH8</strong></td><td>PC 2</td><td>Scene Tag #3</td></tr>
+              <tr data-wing="pc,9,1" data-text="scene go"><td><strong>CH9</strong></td><td>PC 1</td><td>GO</td></tr>
+              <tr data-wing="pc,9,2" data-text="scene prev"><td><strong>CH9</strong></td><td>PC 2</td><td>PREV</td></tr>
+              <tr data-wing="pc,9,3" data-text="scene next"><td><strong>CH9</strong></td><td>PC 3</td><td>NEXT</td></tr>
+              <tr data-wing="pc,9,4" data-text="scene go prev"><td><strong>CH9</strong></td><td>PC 4</td><td>GO + PREV</td></tr>
+              <tr data-wing="pc,9,5" data-text="scene go next"><td><strong>CH9</strong></td><td>PC 5</td><td>GO + NEXT</td></tr>
             </tbody>
           </table>
           <p class="note">
             Tags : LIBRARY → SHOW → Edit Tag → #1, #2… • Le Show doit être ouvert.<br>
-            Exemple Tag #1 → <code>C8 00</code>
+            Exemple Tag #1 (CH8 PC 0) → <code>C7 00</code> — status = C0 + (canal − 1)
           </p>
         </div>
 
@@ -466,17 +474,17 @@
 
           <div class="row" style="margin-bottom:10px;">
             <div class="field" style="max-width:150px;">
-              <label>Slot FX utilisé (1-16)</label>
-              <input type="number" id="fxSlot" min="1" max="16" value="1" oninput="updateFxSlotHint()">
+              <label for="fxSlot">Slot FX utilisé (1-16)</label>
+              <input type="number" id="fxSlot" min="1" max="16" value="1">
             </div>
           </div>
           <p class="note" id="fxSlotHint" style="margin-bottom:10px;"></p>
 
           <div class="quick-btns">
-            <button onclick="applyFxInsert(127)">Insert ON</button>
-            <button onclick="applyFxInsert(0)">Insert OFF</button>
-            <button onclick="applyFxMix(64)">Mix 50%</button>
-            <button onclick="applyFxMix(127)">Mix 100%</button>
+            <button type="button" data-fx="insert,127">Insert ON</button>
+            <button type="button" data-fx="insert,0">Insert OFF</button>
+            <button type="button" data-fx="mix,64">Mix 50%</button>
+            <button type="button" data-fx="mix,127">Mix 100%</button>
           </div>
 
           <p class="note">
@@ -487,80 +495,17 @@
           <h3 style="margin-top:16px">Modèles disponibles — Effets standards (<code>fx/N/mdl</code>)</h3>
           <p class="note">Règle le <strong>slot FX</strong> ci-dessus puis clique sur un paramètre pour générer directement son CC/hex dans le Convertisseur (le n° de modèle exact envoyé par CC14/CC72 n'est en revanche pas documenté publiquement — passe par OSC <code>/fx/N/mdl</code> pour forcer un modèle précisément). Liste + paramètres (ordre = ordre des CC Param) tirés de l'appendix « Effects and Plugins' Parameters list » du protocole WING.</p>
           <table class="reftable">
-<thead><tr><th>Modèle</th><th>Code</th><th>Nb</th><th>Paramètres (clique pour générer le CC)</th></tr></thead>
-            <tbody>
-              <tr data-text="none none fx standard"><td>None</td><td><code>NONE</code></td><td>0</td><td class="param-cell"><span class="note" style="margin:0;">—</span></td></tr>
-              <tr data-text="external ext fx standard"><td>External</td><td><code>EXT</code></td><td>5</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (EXT)">egrp</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (EXT)">ein</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (EXT)">emode</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (EXT)">lat</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (EXT)">trim</button></td></tr>
-              <tr data-text="graphic eq geq fx standard"><td>Graphic EQ</td><td><code>GEQ</code></td><td>33</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (GEQ)">type</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (GEQ)">20</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (GEQ)">25</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (GEQ)">31</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (GEQ)">40</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (GEQ)">50</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (GEQ)">63</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (GEQ)">80</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (GEQ)">100</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (GEQ)">125</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (GEQ)">160</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (GEQ)">200</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (GEQ)">250</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (GEQ)">315</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (GEQ)">400</button> <button type="button" class="param-chip" onclick="applyFxParam(16)" title="Param 16 (GEQ)">500</button> <button type="button" class="param-chip" onclick="applyFxParam(17)" title="Param 17 (GEQ)">630</button> <button type="button" class="param-chip" onclick="applyFxParam(18)" title="Param 18 (GEQ)">800</button> <button type="button" class="param-chip" onclick="applyFxParam(19)" title="Param 19 (GEQ)">1k</button> <button type="button" class="param-chip" onclick="applyFxParam(20)" title="Param 20 (GEQ)">1k25</button> <button type="button" class="param-chip" onclick="applyFxParam(21)" title="Param 21 (GEQ)">1k6</button> <button type="button" class="param-chip" onclick="applyFxParam(22)" title="Param 22 (GEQ)">2k</button> <button type="button" class="param-chip" onclick="applyFxParam(23)" title="Param 23 (GEQ)">2k5</button> <button type="button" class="param-chip" onclick="applyFxParam(24)" title="Param 24 (GEQ)">3k15</button> <button type="button" class="param-chip" onclick="applyFxParam(25)" title="Param 25 (GEQ)">4k</button> <button type="button" class="param-chip" onclick="applyFxParam(26)" title="Param 26 (GEQ)">5k</button> <button type="button" class="param-chip" onclick="applyFxParam(27)" title="Param 27 (GEQ)">6k3</button> <button type="button" class="param-chip" onclick="applyFxParam(28)" title="Param 28 (GEQ)">8k</button> <button type="button" class="param-chip" onclick="applyFxParam(29)" title="Param 29 (GEQ)">10k</button> <button type="button" class="param-chip" onclick="applyFxParam(30)" title="Param 30 (GEQ)">12k5</button> <button type="button" class="param-chip" onclick="applyFxParam(31)" title="Param 31 (GEQ)">16k</button> <button type="button" class="param-chip" onclick="applyFxParam(32)" title="Param 32 (GEQ)">20k</button> <button type="button" class="param-chip" onclick="applyFxParam(33)" title="Param 33 (GEQ)">TRIM</button></td></tr>
-              <tr data-text="pia 560 geq pia fx standard"><td>PIA 560 GEQ</td><td><code>PIA</code></td><td>12</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (PIA)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (PIA)">gain</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (PIA)">31</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (PIA)">63</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (PIA)">125</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (PIA)">250</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (PIA)">500</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (PIA)">1k</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (PIA)">2k</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (PIA)">4k</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (PIA)">8k</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (PIA)">16k</button></td></tr>
-              <tr data-text="triple dynamic eq deq3 fx standard"><td>Triple Dynamic EQ</td><td><code>DEQ3</code></td><td>27</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (DEQ3)">1-thr</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (DEQ3)">1-ratio</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (DEQ3)">1-att</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (DEQ3)">1-rel</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (DEQ3)">1-filt</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (DEQ3)">1-g</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (DEQ3)">1-f</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (DEQ3)">1-q</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (DEQ3)">1-mode</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (DEQ3)">2-thr</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (DEQ3)">2-ratio</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (DEQ3)">2-att</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (DEQ3)">2-rel</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (DEQ3)">2-filt</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (DEQ3)">2-g</button> <button type="button" class="param-chip" onclick="applyFxParam(16)" title="Param 16 (DEQ3)">2-f</button> <button type="button" class="param-chip" onclick="applyFxParam(17)" title="Param 17 (DEQ3)">2-q</button> <button type="button" class="param-chip" onclick="applyFxParam(18)" title="Param 18 (DEQ3)">2-mode</button> <button type="button" class="param-chip" onclick="applyFxParam(19)" title="Param 19 (DEQ3)">3-thr</button> <button type="button" class="param-chip" onclick="applyFxParam(20)" title="Param 20 (DEQ3)">3-ratio</button> <button type="button" class="param-chip" onclick="applyFxParam(21)" title="Param 21 (DEQ3)">3-att</button> <button type="button" class="param-chip" onclick="applyFxParam(22)" title="Param 22 (DEQ3)">3-rel</button> <button type="button" class="param-chip" onclick="applyFxParam(23)" title="Param 23 (DEQ3)">3-filt</button> <button type="button" class="param-chip" onclick="applyFxParam(24)" title="Param 24 (DEQ3)">3-g</button> <button type="button" class="param-chip" onclick="applyFxParam(25)" title="Param 25 (DEQ3)">3-f</button> <button type="button" class="param-chip" onclick="applyFxParam(26)" title="Param 26 (DEQ3)">3-q</button> <button type="button" class="param-chip" onclick="applyFxParam(27)" title="Param 27 (DEQ3)">3-mode</button></td></tr>
-              <tr data-text="combinator c5-cmb fx standard"><td>Combinator</td><td><code>C5-CMB</code></td><td>32</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (C5-CMB)">thr</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (C5-CMB)">gain</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (C5-CMB)">ratio</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (C5-CMB)">slope</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (C5-CMB)">bandsel</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (C5-CMB)">att</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (C5-CMB)">rel</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (C5-CMB)">arel</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (C5-CMB)">sbc</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (C5-CMB)">sbcon</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (C5-CMB)">thr_1</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (C5-CMB)">thr_2</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (C5-CMB)">thr_3</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (C5-CMB)">thr_4</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (C5-CMB)">thr_5</button> <button type="button" class="param-chip" onclick="applyFxParam(16)" title="Param 16 (C5-CMB)">gain_1</button> <button type="button" class="param-chip" onclick="applyFxParam(17)" title="Param 17 (C5-CMB)">gain_2</button> <button type="button" class="param-chip" onclick="applyFxParam(18)" title="Param 18 (C5-CMB)">gain_3</button> <button type="button" class="param-chip" onclick="applyFxParam(19)" title="Param 19 (C5-CMB)">gain_4</button> <button type="button" class="param-chip" onclick="applyFxParam(20)" title="Param 20 (C5-CMB)">gain_5</button> <button type="button" class="param-chip" onclick="applyFxParam(21)" title="Param 21 (C5-CMB)">byp_1</button> <button type="button" class="param-chip" onclick="applyFxParam(22)" title="Param 22 (C5-CMB)">byp_2</button> <button type="button" class="param-chip" onclick="applyFxParam(23)" title="Param 23 (C5-CMB)">byp_3</button> <button type="button" class="param-chip" onclick="applyFxParam(24)" title="Param 24 (C5-CMB)">byp_4</button> <button type="button" class="param-chip" onclick="applyFxParam(25)" title="Param 25 (C5-CMB)">byp_5</button> <button type="button" class="param-chip" onclick="applyFxParam(26)" title="Param 26 (C5-CMB)">width_1</button> <button type="button" class="param-chip" onclick="applyFxParam(27)" title="Param 27 (C5-CMB)">width_2</button> <button type="button" class="param-chip" onclick="applyFxParam(28)" title="Param 28 (C5-CMB)">width_3</button> <button type="button" class="param-chip" onclick="applyFxParam(29)" title="Param 29 (C5-CMB)">width_4</button> <button type="button" class="param-chip" onclick="applyFxParam(30)" title="Param 30 (C5-CMB)">width_5</button> <button type="button" class="param-chip" onclick="applyFxParam(31)" title="Param 31 (C5-CMB)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(32)" title="Param 32 (C5-CMB)">$bdsolo</button></td></tr>
-              <tr data-text="precision limiter limiter fx standard"><td>Precision Limiter</td><td><code>LIMITER</code></td><td>7</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (LIMITER)">gin</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (LIMITER)">gout</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (LIMITER)">sqz</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (LIMITER)">knee</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (LIMITER)">again</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (LIMITER)">att</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (LIMITER)">rel</button></td></tr>
-              <tr data-text="speaker manager spkman fx standard"><td>Speaker Manager</td><td><code>SPKMAN</code></td><td>24</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (SPKMAN)">hpf</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (SPKMAN)">hptype</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (SPKMAN)">lpf</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (SPKMAN)">lptype</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (SPKMAN)">tiltf</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (SPKMAN)">tiltg</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (SPKMAN)">phase</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (SPKMAN)">invert</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (SPKMAN)">dist</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (SPKMAN)">pos</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (SPKMAN)">dyneq</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (SPKMAN)">dynthr</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (SPKMAN)">deqratio</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (SPKMAN)">deqatt</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (SPKMAN)">deqrel</button> <button type="button" class="param-chip" onclick="applyFxParam(16)" title="Param 16 (SPKMAN)">deqfilt</button> <button type="button" class="param-chip" onclick="applyFxParam(17)" title="Param 17 (SPKMAN)">deqg</button> <button type="button" class="param-chip" onclick="applyFxParam(18)" title="Param 18 (SPKMAN)">deqf</button> <button type="button" class="param-chip" onclick="applyFxParam(19)" title="Param 19 (SPKMAN)">deqq</button> <button type="button" class="param-chip" onclick="applyFxParam(20)" title="Param 20 (SPKMAN)">deqmode</button> <button type="button" class="param-chip" onclick="applyFxParam(21)" title="Param 21 (SPKMAN)">lim</button> <button type="button" class="param-chip" onclick="applyFxParam(22)" title="Param 22 (SPKMAN)">limthr</button> <button type="button" class="param-chip" onclick="applyFxParam(23)" title="Param 23 (SPKMAN)">limrms</button> <button type="button" class="param-chip" onclick="applyFxParam(24)" title="Param 24 (SPKMAN)">limrel</button></td></tr>
-              <tr data-text="2-band deesser de-s2 fx standard"><td>2-Band DeEsser</td><td><code>DE-S2</code></td><td>6</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (DE-S2)">lo</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (DE-S2)">hi</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (DE-S2)">los</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (DE-S2)">his</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (DE-S2)">gdr</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (DE-S2)">mode</button></td></tr>
-              <tr data-text="ultra enhancer enhance fx standard"><td>Ultra Enhancer</td><td><code>ENHANCE</code></td><td>13</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (ENHANCE)">stlv</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (ENHANCE)">lmf</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (ENHANCE)">lmvl</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (ENHANCE)">st</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (ENHANCE)">m</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (ENHANCE)">bass</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (ENHANCE)">mid</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (ENHANCE)">high</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (ENHANCE)">g</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (ENHANCE)">solo</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (ENHANCE)">bassf</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (ENHANCE)">midq</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (ENHANCE)">highf</button></td></tr>
-              <tr data-text="exciter exciter fx standard"><td>Exciter</td><td><code>EXCITER</code></td><td>7</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (EXCITER)">tune</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (EXCITER)">peak</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (EXCITER)">zfill</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (EXCITER)">timbre</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (EXCITER)">harm</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (EXCITER)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (EXCITER)">dry</button></td></tr>
-              <tr data-text="psycho bass p-bass fx standard"><td>Psycho Bass</td><td><code>P-BASS</code></td><td>4</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (P-BASS)">int</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (P-BASS)">bass</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (P-BASS)">xf</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (P-BASS)">solo</button></td></tr>
-              <tr data-text="sub octaver sub fx standard"><td>Sub Octaver</td><td><code>SUB</code></td><td>3</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (SUB)">rng</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (SUB)">oct1</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (SUB)">oct2</button></td></tr>
-              <tr data-text="sub monster sub-m fx standard"><td>Sub Monster</td><td><code>SUB-M</code></td><td>7</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (SUB-M)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (SUB-M)">freq</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (SUB-M)">bd1</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (SUB-M)">bd2</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (SUB-M)">bd3</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (SUB-M)">bd4</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (SUB-M)">bd5</button></td></tr>
-              <tr data-text="velvet imager v_img fx standard"><td>Velvet Imager</td><td><code>V_IMG</code></td><td>5</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (V_IMG)">wid</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (V_IMG)">st</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (V_IMG)">gain</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (V_IMG)">mode</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (V_IMG)">deep</button></td></tr>
-              <tr data-text="double vocal double fx standard"><td>Double Vocal</td><td><code>DOUBLE</code></td><td>3</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (DOUBLE)">mode</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (DOUBLE)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (DOUBLE)">sprd</button></td></tr>
-              <tr data-text="pitch fix pcorr fx standard"><td>Pitch Fix</td><td><code>PCORR</code></td><td>15</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (PCORR)">spd</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (PCORR)">amnt</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (PCORR)">a4</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (PCORR)">_c</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (PCORR)">_db</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (PCORR)">_d</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (PCORR)">_eb</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (PCORR)">_e</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (PCORR)">_f</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (PCORR)">_gb</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (PCORR)">_g</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (PCORR)">_ab</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (PCORR)">_a</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (PCORR)">_bb</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (PCORR)">_b</button></td></tr>
-              <tr data-text="rotary speaker rotary fx standard"><td>Rotary Speaker</td><td><code>ROTARY</code></td><td>8</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (ROTARY)">sw</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (ROTARY)">lo</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (ROTARY)">hi</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (ROTARY)">bal</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (ROTARY)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (ROTARY)">dist</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (ROTARY)">dac</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (ROTARY)">hac</button></td></tr>
-              <tr data-text="phaser phaser fx standard"><td>Phaser</td><td><code>PHASER</code></td><td>12</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (PHASER)">spd</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (PHASER)">phase</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (PHASER)">wave</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (PHASER)">range</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (PHASER)">depth</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (PHASER)">emod</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (PHASER)">att</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (PHASER)">hld</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (PHASER)">rel</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (PHASER)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (PHASER)">stg</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (PHASER)">reso</button></td></tr>
-              <tr data-text="tremolo panner panner fx standard"><td>Tremolo Panner</td><td><code>PANNER</code></td><td>9</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (PANNER)">att</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (PANNER)">hld</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (PANNER)">rel</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (PANNER)">espd</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (PANNER)">edep</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (PANNER)">spd</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (PANNER)">phase</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (PANNER)">wave</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (PANNER)">depth</button></td></tr>
-              <tr data-text="tape machine tape fx standard"><td>Tape Machine</td><td><code>TAPE</code></td><td>5</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (TAPE)">drv</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (TAPE)">spd</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (TAPE)">low</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (TAPE)">hi</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (TAPE)">out</button></td></tr>
-              <tr data-text="mood filter mood fx standard"><td>Mood Filter</td><td><code>MOOD</code></td><td>14</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (MOOD)">fbase</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (MOOD)">filt</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (MOOD)">slope</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (MOOD)">reso</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (MOOD)">drv</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (MOOD)">env</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (MOOD)">att</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (MOOD)">hld</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (MOOD)">rel</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (MOOD)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (MOOD)">lfo</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (MOOD)">spd</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (MOOD)">phase</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (MOOD)">wave</button></td></tr>
-              <tr data-text="bodyrez body fx standard"><td>Bodyrez</td><td><code>BODY</code></td><td>1</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (BODY)">body</button></td></tr>
-              <tr data-text="rack amp rackamp fx standard"><td>Rack Amp</td><td><code>RACKAMP</code></td><td>8</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (RACKAMP)">pre</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (RACKAMP)">buzz</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (RACKAMP)">punch</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (RACKAMP)">crunch</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (RACKAMP)">out</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (RACKAMP)">leq</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (RACKAMP)">heq</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (RACKAMP)">cab</button></td></tr>
-              <tr data-text="uk rock amp ukrock fx standard"><td>UK Rock Amp</td><td><code>UKROCK</code></td><td>8</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (UKROCK)">gain</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (UKROCK)">bass</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (UKROCK)">mid</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (UKROCK)">treb</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (UKROCK)">mstr</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (UKROCK)">out</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (UKROCK)">sag</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (UKROCK)">cab</button></td></tr>
-              <tr data-text="angel amp angel fx standard"><td>Angel Amp</td><td><code>ANGEL</code></td><td>11</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (ANGEL)">gain</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (ANGEL)">bass</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (ANGEL)">mid</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (ANGEL)">treb</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (ANGEL)">mstr</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (ANGEL)">out</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (ANGEL)">sag</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (ANGEL)">cab</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (ANGEL)">midb</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (ANGEL)">bri</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (ANGEL)">bt</button></td></tr>
-              <tr data-text="jazz clean amp jazzc fx standard"><td>Jazz Clean Amp</td><td><code>JAZZC</code></td><td>7</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (JAZZC)">vol</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (JAZZC)">bass</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (JAZZC)">mid</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (JAZZC)">treb</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (JAZZC)">out</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (JAZZC)">bri</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (JAZZC)">cab</button></td></tr>
-              <tr data-text="deluxe amp deluxe fx standard"><td>Deluxe Amp</td><td><code>DELUXE</code></td><td>6</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (DELUXE)">vol</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (DELUXE)">bass</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (DELUXE)">treb</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (DELUXE)">out</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (DELUXE)">sag</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (DELUXE)">cab</button></td></tr>
-              <tr data-text="soul analogue soul fx standard"><td>Soul Analogue</td><td><code>SOUL</code></td><td>13</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (SOUL)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (SOUL)">lf</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (SOUL)">lg</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (SOUL)">lmf</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (SOUL)">lmf3</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (SOUL)">lmq</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (SOUL)">lmg</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (SOUL)">hmf</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (SOUL)">hmf3</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (SOUL)">hmq</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (SOUL)">hmg</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (SOUL)">hf</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (SOUL)">hg</button></td></tr>
-              <tr data-text="even 88 formant e88 fx standard"><td>Even 88 Formant</td><td><code>E88</code></td><td>15</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (E88)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (E88)">lf</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (E88)">lg</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (E88)">lq</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (E88)">lt</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (E88)">lmf</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (E88)">lmg</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (E88)">lmq</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (E88)">hmf</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (E88)">hmg</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (E88)">hmq</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (E88)">hf</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (E88)">hg</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (E88)">hq</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (E88)">ht</button></td></tr>
-              <tr data-text="even 84 e84 fx standard"><td>Even 84</td><td><code>E84</code></td><td>9</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (E84)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (E84)">g</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (E84)">lf</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (E84)">lg</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (E84)">mf</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (E84)">mg</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (E84)">mq</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (E84)">hf</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (E84)">hg</button></td></tr>
-              <tr data-text="fortissimo110 f110 fx standard"><td>Fortissimo110</td><td><code>F110</code></td><td>16</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (F110)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (F110)">peq</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (F110)">lmf</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (F110)">lmg</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (F110)">lmq</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (F110)">lmf3</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (F110)">hmf</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (F110)">hmg</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (F110)">hmq</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (F110)">hmf3</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (F110)">shv</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (F110)">lf</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (F110)">lg</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (F110)">hf</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (F110)">hg</button> <button type="button" class="param-chip" onclick="applyFxParam(16)" title="Param 16 (F110)">g</button></td></tr>
-              <tr data-text="pulsar pulsar fx standard"><td>Pulsar</td><td><code>PULSAR</code></td><td>17</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (PULSAR)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (PULSAR)">eq1</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (PULSAR)">1lb</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (PULSAR)">1latt</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (PULSAR)">1lf</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (PULSAR)">1hw</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (PULSAR)">1hb</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (PULSAR)">1hf</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (PULSAR)">1hatt</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (PULSAR)">1hattf</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (PULSAR)">eq5</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (PULSAR)">5lb</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (PULSAR)">5lf</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (PULSAR)">5md</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (PULSAR)">5mf</button> <button type="button" class="param-chip" onclick="applyFxParam(16)" title="Param 16 (PULSAR)">5hb</button> <button type="button" class="param-chip" onclick="applyFxParam(17)" title="Param 17 (PULSAR)">5hf</button></td></tr>
-              <tr data-text="mach eq4 mach4 fx standard"><td>Mach EQ4</td><td><code>MACH4</code></td><td>9</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (MACH4)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (MACH4)">sub</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (MACH4)">40</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (MACH4)">160</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (MACH4)">650</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (MACH4)">2k5</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (MACH4)">air</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (MACH4)">airm</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (MACH4)">again</button></td></tr>
-            </tbody>
+            <thead><tr><th>Modèle</th><th>Code</th><th>Nb</th><th>Paramètres (clique pour générer le CC)</th></tr></thead>
+            <tbody id="fxModels-standard"></tbody>
           </table>
 
-          <h3 style="margin-top:16px">Modèles disponibles — Effets premium (<code>fx/N/mdl</code>)</h3>
-          <table class="reftable">
-<thead><tr><th>Modèle</th><th>Code</th><th>Nb</th><th>Paramètres (clique pour générer le CC)</th></tr></thead>
-            <tbody>
-              <tr data-text="none none fx premium"><td>None</td><td><code>NONE</code></td><td>0</td><td class="param-cell"><span class="note" style="margin:0;">—</span></td></tr>
-              <tr data-text="external ext fx premium"><td>External</td><td><code>EXT</code></td><td>5</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (EXT)">egrp</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (EXT)">ein</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (EXT)">emode</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (EXT)">lat</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (EXT)">trim</button></td></tr>
-              <tr data-text="hall reverb hall fx premium"><td>Hall Reverb</td><td><code>HALL</code></td><td>11</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (HALL)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (HALL)">size</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (HALL)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (HALL)">mult</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (HALL)">damp</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (HALL)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (HALL)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (HALL)">shp</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (HALL)">sprd</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (HALL)">diff</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (HALL)">mspd</button></td></tr>
-              <tr data-text="room reverb r-oom fx premium"><td>Room Reverb</td><td><code>R-OOM</code></td><td>15</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (R-OOM)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (R-OOM)">size</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (R-OOM)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (R-OOM)">mult</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (R-OOM)">damp</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (R-OOM)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (R-OOM)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (R-OOM)">shp</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (R-OOM)">sprd</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (R-OOM)">diff</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (R-OOM)">spin</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (R-OOM)">ecl</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (R-OOM)">ecr</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (R-OOM)">efl</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (R-OOM)">efr</button></td></tr>
-              <tr data-text="chamber reverb chamber fx premium"><td>Chamber Reverb</td><td><code>CHAMBER</code></td><td>15</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (CHAMBER)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (CHAMBER)">size</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (CHAMBER)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (CHAMBER)">mult</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (CHAMBER)">damp</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (CHAMBER)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (CHAMBER)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (CHAMBER)">shp</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (CHAMBER)">sprd</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (CHAMBER)">diff</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (CHAMBER)">spin</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (CHAMBER)">ecl</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (CHAMBER)">ecr</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (CHAMBER)">ell</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (CHAMBER)">elr</button></td></tr>
-              <tr data-text="plate reverb plate fx premium"><td>Plate Reverb</td><td><code>PLATE</code></td><td>15</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (PLATE)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (PLATE)">size</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (PLATE)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (PLATE)">mult</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (PLATE)">damp</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (PLATE)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (PLATE)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (PLATE)">att</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (PLATE)">sprd</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (PLATE)">diff</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (PLATE)">spin</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (PLATE)">ecl</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (PLATE)">ecr</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (PLATE)">efl</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (PLATE)">efr</button></td></tr>
-              <tr data-text="concert reverb concert fx premium"><td>Concert Reverb</td><td><code>CONCERT</code></td><td>17</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (CONCERT)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (CONCERT)">size</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (CONCERT)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (CONCERT)">mult</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (CONCERT)">damp</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (CONCERT)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (CONCERT)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (CONCERT)">shp</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (CONCERT)">sprd</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (CONCERT)">diff</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (CONCERT)">depth</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (CONCERT)">rfl</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (CONCERT)">rfr</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (CONCERT)">rfll</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (CONCERT)">rflr</button> <button type="button" class="param-chip" onclick="applyFxParam(16)" title="Param 16 (CONCERT)">spin</button> <button type="button" class="param-chip" onclick="applyFxParam(17)" title="Param 17 (CONCERT)">crs</button></td></tr>
-              <tr data-text="ambiance ambi fx premium"><td>Ambiance</td><td><code>AMBI</code></td><td>9</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (AMBI)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (AMBI)">size</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (AMBI)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (AMBI)">tail</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (AMBI)">damp</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (AMBI)">diff</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (AMBI)">mod</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (AMBI)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (AMBI)">hc</button></td></tr>
-              <tr data-text="vss3 reverb vss3 fx premium"><td>VSS3 Reverb</td><td><code>VSS3</code></td><td>32</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (VSS3)">preset</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (VSS3)">load</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (VSS3)">erpdly</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (VSS3)">ertype</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (VSS3)">ersize</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (VSS3)">erpos</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (VSS3)">erbal</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (VSS3)">erlc</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (VSS3)">ercol</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (VSS3)">erlvl</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (VSS3)">rvtype</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (VSS3)">rvwide</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (VSS3)">rvpdly</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (VSS3)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(15)" title="Param 15 (VSS3)">diff</button> <button type="button" class="param-chip" onclick="applyFxParam(16)" title="Param 16 (VSS3)">rvbal</button> <button type="button" class="param-chip" onclick="applyFxParam(17)" title="Param 17 (VSS3)">rvlvl</button> <button type="button" class="param-chip" onclick="applyFxParam(18)" title="Param 18 (VSS3)">ldcy</button> <button type="button" class="param-chip" onclick="applyFxParam(19)" title="Param 19 (VSS3)">lmdcy</button> <button type="button" class="param-chip" onclick="applyFxParam(20)" title="Param 20 (VSS3)">hmdcy</button> <button type="button" class="param-chip" onclick="applyFxParam(21)" title="Param 21 (VSS3)">hdcy</button> <button type="button" class="param-chip" onclick="applyFxParam(22)" title="Param 22 (VSS3)">hsoft</button> <button type="button" class="param-chip" onclick="applyFxParam(23)" title="Param 23 (VSS3)">lxo</button> <button type="button" class="param-chip" onclick="applyFxParam(24)" title="Param 24 (VSS3)">mxo</button> <button type="button" class="param-chip" onclick="applyFxParam(25)" title="Param 25 (VSS3)">hxo</button> <button type="button" class="param-chip" onclick="applyFxParam(26)" title="Param 26 (VSS3)">lshv</button> <button type="button" class="param-chip" onclick="applyFxParam(27)" title="Param 27 (VSS3)">lsdmp</button> <button type="button" class="param-chip" onclick="applyFxParam(28)" title="Param 28 (VSS3)">hcut</button> <button type="button" class="param-chip" onclick="applyFxParam(29)" title="Param 29 (VSS3)">mtype</button> <button type="button" class="param-chip" onclick="applyFxParam(30)" title="Param 30 (VSS3)">mrate</button> <button type="button" class="param-chip" onclick="applyFxParam(31)" title="Param 31 (VSS3)">mwid</button> <button type="button" class="param-chip" onclick="applyFxParam(32)" title="Param 32 (VSS3)">view</button></td></tr>
-              <tr data-text="vintage room v-room fx premium"><td>Vintage Room</td><td><code>V-ROOM</code></td><td>14</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (V-ROOM)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (V-ROOM)">size</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (V-ROOM)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (V-ROOM)">dens</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (V-ROOM)">erlvl</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (V-ROOM)">lmult</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (V-ROOM)">hmult</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (V-ROOM)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (V-ROOM)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (V-ROOM)">frz</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (V-ROOM)">erl</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (V-ROOM)">err</button> <button type="button" class="param-chip" onclick="applyFxParam(13)" title="Param 13 (V-ROOM)">add</button> <button type="button" class="param-chip" onclick="applyFxParam(14)" title="Param 14 (V-ROOM)">lvl</button></td></tr>
-              <tr data-text="vintage reverb v-rev fx premium"><td>Vintage Reverb</td><td><code>V-REV</code></td><td>9</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (V-REV)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (V-REV)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (V-REV)">lmult</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (V-REV)">hmult</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (V-REV)">mod</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (V-REV)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (V-REV)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (V-REV)">out</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (V-REV)">trans</button></td></tr>
-              <tr data-text="vintage plate v-plate fx premium"><td>Vintage Plate</td><td><code>V-PLATE</code></td><td>4</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (V-PLATE)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (V-PLATE)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (V-PLATE)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (V-PLATE)">col</button></td></tr>
-              <tr data-text="blue plate bplate fx premium"><td>Blue Plate</td><td><code>BPLATE</code></td><td>11</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (BPLATE)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (BPLATE)">size</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (BPLATE)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (BPLATE)">mult</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (BPLATE)">damp</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (BPLATE)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (BPLATE)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (BPLATE)">xover</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (BPLATE)">mdep</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (BPLATE)">msdp</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (BPLATE)">diff</button></td></tr>
-              <tr data-text="gated reverb gated fx premium"><td>Gated Reverb</td><td><code>GATED</code></td><td>9</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (GATED)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (GATED)">att</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (GATED)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (GATED)">dens</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (GATED)">diff</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (GATED)">sprd</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (GATED)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (GATED)">hfs</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (GATED)">hsg</button></td></tr>
-              <tr data-text="reverse reverb reverse fx premium"><td>Reverse Reverb</td><td><code>REVERSE</code></td><td>8</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (REVERSE)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (REVERSE)">rise</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (REVERSE)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (REVERSE)">diff</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (REVERSE)">sprd</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (REVERSE)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (REVERSE)">hfs</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (REVERSE)">hsg</button></td></tr>
-              <tr data-text="delay/reverb del/rev fx premium"><td>Delay/Reverb</td><td><code>DEL/REV</code></td><td>11</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (DEL/REV)">time</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (DEL/REV)">feed</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (DEL/REV)">fhc</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (DEL/REV)">dly</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (DEL/REV)">d2r</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (DEL/REV)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (DEL/REV)">size</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (DEL/REV)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (DEL/REV)">damp</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (DEL/REV)">rlc</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (DEL/REV)">i2r</button></td></tr>
-              <tr data-text="shimmer reverb shimmer fx premium"><td>Shimmer Reverb</td><td><code>SHIMMER</code></td><td>8</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (SHIMMER)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (SHIMMER)">size</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (SHIMMER)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (SHIMMER)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (SHIMMER)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (SHIMMER)">damp</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (SHIMMER)">shim</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (SHIMMER)">shine</button></td></tr>
-              <tr data-text="spring reverb spring fx premium"><td>Spring Reverb</td><td><code>SPRING</code></td><td>4</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (SPRING)">dcy</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (SPRING)">dens</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (SPRING)">low</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (SPRING)">high</button></td></tr>
-              <tr data-text="dimension crs dimcrs fx premium"><td>Dimension CRS</td><td><code>DIMCRS</code></td><td>6</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (DIMCRS)">sw1</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (DIMCRS)">sw2</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (DIMCRS)">sw3</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (DIMCRS)">sw4</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (DIMCRS)">in</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (DIMCRS)">drysw</button></td></tr>
-              <tr data-text="stereo chorus chorus fx premium"><td>Stereo Chorus</td><td><code>CHORUS</code></td><td>11</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (CHORUS)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (CHORUS)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (CHORUS)">wave</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (CHORUS)">phase</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (CHORUS)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (CHORUS)">dlyl</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (CHORUS)">dlyr</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (CHORUS)">depl</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (CHORUS)">depr</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (CHORUS)">sprd</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (CHORUS)">spd</button></td></tr>
-              <tr data-text="stereo flanger chorus fx premium"><td>Stereo Flanger</td><td><code>CHORUS</code></td><td>12</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (CHORUS)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (CHORUS)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (CHORUS)">flc</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (CHORUS)">fhc</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (CHORUS)">mix</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (CHORUS)">dlyl</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (CHORUS)">dlyr</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (CHORUS)">depl</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (CHORUS)">depr</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (CHORUS)">phase</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (CHORUS)">spd</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (CHORUS)">feed</button></td></tr>
-              <tr data-text="stereo delay st-dl fx premium"><td>Stereo Delay</td><td><code>ST-DL</code></td><td>10</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (ST-DL)">time</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (ST-DL)">mode</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (ST-DL)">fact</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (ST-DL)">pat</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (ST-DL)">offset</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (ST-DL)">feed</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (ST-DL)">flc</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (ST-DL)">fhc</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (ST-DL)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (ST-DL)">hc</button></td></tr>
-              <tr data-text="ultratap delay tap-dl fx premium"><td>UltraTap Delay</td><td><code>TAP-DL</code></td><td>10</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (TAP-DL)">time</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (TAP-DL)">rep</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (TAP-DL)">slp</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (TAP-DL)">fact</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (TAP-DL)">pdel</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (TAP-DL)">mode</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (TAP-DL)">wid</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (TAP-DL)">diff</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (TAP-DL)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (TAP-DL)">hc</button></td></tr>
-              <tr data-text="tape delay tape-dl fx premium"><td>Tape Delay</td><td><code>TAPE-DL</code></td><td>4</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (TAPE-DL)">time</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (TAPE-DL)">sust</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (TAPE-DL)">drv</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (TAPE-DL)">wf</button></td></tr>
-              <tr data-text="oilcan delay oilcan fx premium"><td>OilCan Delay</td><td><code>OILCAN</code></td><td>4</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (OILCAN)">time</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (OILCAN)">sust</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (OILCAN)">wb</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (OILCAN)">tone</button></td></tr>
-              <tr data-text="bbd delay bbd-dl fx premium"><td>BBD Delay</td><td><code>BBD-DL</code></td><td>2</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (BBD-DL)">dly</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (BBD-DL)">feed</button></td></tr>
-              <tr data-text="stereo pitch pitch fx premium"><td>Stereo Pitch</td><td><code>PITCH</code></td><td>6</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (PITCH)">semi</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (PITCH)">cent</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (PITCH)">dly</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (PITCH)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (PITCH)">hc</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (PITCH)">mix</button></td></tr>
-              <tr data-text="dual pitch d-pitch fx premium"><td>Dual Pitch</td><td><code>D-PITCH</code></td><td>12</td><td class="param-cell"><button type="button" class="param-chip" onclick="applyFxParam(1)" title="Param 1 (D-PITCH)">semi1</button> <button type="button" class="param-chip" onclick="applyFxParam(2)" title="Param 2 (D-PITCH)">cent1</button> <button type="button" class="param-chip" onclick="applyFxParam(3)" title="Param 3 (D-PITCH)">dly1</button> <button type="button" class="param-chip" onclick="applyFxParam(4)" title="Param 4 (D-PITCH)">pan1</button> <button type="button" class="param-chip" onclick="applyFxParam(5)" title="Param 5 (D-PITCH)">lvl1</button> <button type="button" class="param-chip" onclick="applyFxParam(6)" title="Param 6 (D-PITCH)">semi2</button> <button type="button" class="param-chip" onclick="applyFxParam(7)" title="Param 7 (D-PITCH)">cent2</button> <button type="button" class="param-chip" onclick="applyFxParam(8)" title="Param 8 (D-PITCH)">dly2</button> <button type="button" class="param-chip" onclick="applyFxParam(9)" title="Param 9 (D-PITCH)">pan2</button> <button type="button" class="param-chip" onclick="applyFxParam(10)" title="Param 10 (D-PITCH)">lvl2</button> <button type="button" class="param-chip" onclick="applyFxParam(11)" title="Param 11 (D-PITCH)">lc</button> <button type="button" class="param-chip" onclick="applyFxParam(12)" title="Param 12 (D-PITCH)">hc</button></td></tr>
-            </tbody>
+          <h3 style="margin-top:16px">Modèles disponibles — Effets premium (<code>fx/N/mdl</code>) — FX1-8 uniquement</h3>
+          <p class="note" id="fxPremiumHint" hidden>Le slot sélectionné est un FX9-16 : les effets premium ne peuvent pas y être chargés. Choisis un slot 1-8 pour générer leurs CC.</p>
+          <table class="reftable" id="fxPremiumTable">
+            <thead><tr><th>Modèle</th><th>Code</th><th>Nb</th><th>Paramètres (clique pour générer le CC)</th></tr></thead>
+            <tbody id="fxModels-premium"></tbody>
           </table>
-          <p class="note">« Stereo Flanger » partage le même code modèle <code>CHORUS</code> que « Stereo Chorus » dans la doc source (probable réutilisation du même plugin avec d'autres paramètres). Les plugins d'insert canal/bus (Filtres, Gate/Compresseur, EQ) sont documentés séparément — ce ne sont pas des slots FX1-16 et n'ont pas de CC dédié (cf. Sources).</p>
+          <p class="note">« Stereo Flanger » partage le même code modèle <code>CHORUS</code> que « Stereo Chorus » dans la doc source (probable réutilisation du même plugin avec d'autres paramètres — <strong>à vérifier</strong>). Les plugins d'insert canal/bus (Filtres, Gate/Compresseur, EQ) sont documentés séparément — ce ne sont pas des slots FX1-16 et n'ont pas de CC dédié (cf. Sources).</p>
         </div>
       </div>
     </div>
@@ -568,7 +513,7 @@
     <p class="footer">Outil local • Sources : <a href="https://drive.google.com/file/d/1-iptgd2Uxw4qPEbmegG2Sqccf8AbRRfk/view" target="_blank" rel="noopener">WING Remote Protocols</a> (Patrick-Gilles Maillot) • <a href="https://cdn-media.empowertribe.com/60af52fb37824ce891703cfaecf4d8d0/M_BE_0603-AEN_WING%20EFFECTS%20GUIDE%20DARK1_WW.pdf" target="_blank" rel="noopener">WING Effects Guide</a> (Behringer) • Clique sur une ligne pour l’utiliser</p>
   </div>
 
-  <div id="toast" class="toast">Commande appliquée → Convertisseur</div>
+  <div id="toast" class="toast" role="status" aria-live="polite">Commande appliquée → Convertisseur</div>
 
   <script>
     const PARAMS = {
@@ -599,11 +544,92 @@
       ]
     };
 
+    // === FX model reference (appendix "Effects and Plugins' Parameters list" of the WING protocol) ===
+    // [name, model code, params in CC order]. Param n is sent on the n-th "Param" CC of the slot (see fxParamCC).
+    const FX_MODELS = {
+      standard: [
+        ['None', 'NONE', []],
+        ['External', 'EXT', ['egrp', 'ein', 'emode', 'lat', 'trim']],
+        ['Graphic EQ', 'GEQ', ['type', '20', '25', '31', '40', '50', '63', '80', '100', '125', '160', '200', '250', '315', '400', '500', '630', '800', '1k', '1k25', '1k6', '2k', '2k5', '3k15', '4k', '5k', '6k3', '8k', '10k', '12k5', '16k', '20k', 'TRIM']],
+        ['PIA 560 GEQ', 'PIA', ['mix', 'gain', '31', '63', '125', '250', '500', '1k', '2k', '4k', '8k', '16k']],
+        ['Triple Dynamic EQ', 'DEQ3', ['1-thr', '1-ratio', '1-att', '1-rel', '1-filt', '1-g', '1-f', '1-q', '1-mode', '2-thr', '2-ratio', '2-att', '2-rel', '2-filt', '2-g', '2-f', '2-q', '2-mode', '3-thr', '3-ratio', '3-att', '3-rel', '3-filt', '3-g', '3-f', '3-q', '3-mode']],
+        ['Combinator', 'C5-CMB', ['thr', 'gain', 'ratio', 'slope', 'bandsel', 'att', 'rel', 'arel', 'sbc', 'sbcon', 'thr_1', 'thr_2', 'thr_3', 'thr_4', 'thr_5', 'gain_1', 'gain_2', 'gain_3', 'gain_4', 'gain_5', 'byp_1', 'byp_2', 'byp_3', 'byp_4', 'byp_5', 'width_1', 'width_2', 'width_3', 'width_4', 'width_5', 'mix', '$bdsolo']],
+        ['Precision Limiter', 'LIMITER', ['gin', 'gout', 'sqz', 'knee', 'again', 'att', 'rel']],
+        ['Speaker Manager', 'SPKMAN', ['hpf', 'hptype', 'lpf', 'lptype', 'tiltf', 'tiltg', 'phase', 'invert', 'dist', 'pos', 'dyneq', 'dynthr', 'deqratio', 'deqatt', 'deqrel', 'deqfilt', 'deqg', 'deqf', 'deqq', 'deqmode', 'lim', 'limthr', 'limrms', 'limrel']],
+        ['2-Band DeEsser', 'DE-S2', ['lo', 'hi', 'los', 'his', 'gdr', 'mode']],
+        ['Ultra Enhancer', 'ENHANCE', ['stlv', 'lmf', 'lmvl', 'st', 'm', 'bass', 'mid', 'high', 'g', 'solo', 'bassf', 'midq', 'highf']],
+        ['Exciter', 'EXCITER', ['tune', 'peak', 'zfill', 'timbre', 'harm', 'mix', 'dry']],
+        ['Psycho Bass', 'P-BASS', ['int', 'bass', 'xf', 'solo']],
+        ['Sub Octaver', 'SUB', ['rng', 'oct1', 'oct2']],
+        ['Sub Monster', 'SUB-M', ['mix', 'freq', 'bd1', 'bd2', 'bd3', 'bd4', 'bd5']],
+        ['Velvet Imager', 'V_IMG', ['wid', 'st', 'gain', 'mode', 'deep']],
+        ['Double Vocal', 'DOUBLE', ['mode', 'mix', 'sprd']],
+        ['Pitch Fix', 'PCORR', ['spd', 'amnt', 'a4', '_c', '_db', '_d', '_eb', '_e', '_f', '_gb', '_g', '_ab', '_a', '_bb', '_b']],
+        ['Rotary Speaker', 'ROTARY', ['sw', 'lo', 'hi', 'bal', 'mix', 'dist', 'dac', 'hac']],
+        ['Phaser', 'PHASER', ['spd', 'phase', 'wave', 'range', 'depth', 'emod', 'att', 'hld', 'rel', 'mix', 'stg', 'reso']],
+        ['Tremolo Panner', 'PANNER', ['att', 'hld', 'rel', 'espd', 'edep', 'spd', 'phase', 'wave', 'depth']],
+        ['Tape Machine', 'TAPE', ['drv', 'spd', 'low', 'hi', 'out']],
+        ['Mood Filter', 'MOOD', ['fbase', 'filt', 'slope', 'reso', 'drv', 'env', 'att', 'hld', 'rel', 'mix', 'lfo', 'spd', 'phase', 'wave']],
+        ['Bodyrez', 'BODY', ['body']],
+        ['Rack Amp', 'RACKAMP', ['pre', 'buzz', 'punch', 'crunch', 'out', 'leq', 'heq', 'cab']],
+        ['UK Rock Amp', 'UKROCK', ['gain', 'bass', 'mid', 'treb', 'mstr', 'out', 'sag', 'cab']],
+        ['Angel Amp', 'ANGEL', ['gain', 'bass', 'mid', 'treb', 'mstr', 'out', 'sag', 'cab', 'midb', 'bri', 'bt']],
+        ['Jazz Clean Amp', 'JAZZC', ['vol', 'bass', 'mid', 'treb', 'out', 'bri', 'cab']],
+        ['Deluxe Amp', 'DELUXE', ['vol', 'bass', 'treb', 'out', 'sag', 'cab']],
+        ['Soul Analogue', 'SOUL', ['mix', 'lf', 'lg', 'lmf', 'lmf3', 'lmq', 'lmg', 'hmf', 'hmf3', 'hmq', 'hmg', 'hf', 'hg']],
+        ['Even 88 Formant', 'E88', ['mix', 'lf', 'lg', 'lq', 'lt', 'lmf', 'lmg', 'lmq', 'hmf', 'hmg', 'hmq', 'hf', 'hg', 'hq', 'ht']],
+        ['Even 84', 'E84', ['mix', 'g', 'lf', 'lg', 'mf', 'mg', 'mq', 'hf', 'hg']],
+        ['Fortissimo110', 'F110', ['mix', 'peq', 'lmf', 'lmg', 'lmq', 'lmf3', 'hmf', 'hmg', 'hmq', 'hmf3', 'shv', 'lf', 'lg', 'hf', 'hg', 'g']],
+        ['Pulsar', 'PULSAR', ['mix', 'eq1', '1lb', '1latt', '1lf', '1hw', '1hb', '1hf', '1hatt', '1hattf', 'eq5', '5lb', '5lf', '5md', '5mf', '5hb', '5hf']],
+        ['Mach EQ4', 'MACH4', ['mix', 'sub', '40', '160', '650', '2k5', 'air', 'airm', 'again']]
+      ],
+      // Premium models can only be loaded in FX1-8.
+      premium: [
+        ['None', 'NONE', []],
+        ['External', 'EXT', ['egrp', 'ein', 'emode', 'lat', 'trim']],
+        ['Hall Reverb', 'HALL', ['pdel', 'size', 'dcy', 'mult', 'damp', 'lc', 'hc', 'shp', 'sprd', 'diff', 'mspd']],
+        ['Room Reverb', 'R-OOM', ['pdel', 'size', 'dcy', 'mult', 'damp', 'lc', 'hc', 'shp', 'sprd', 'diff', 'spin', 'ecl', 'ecr', 'efl', 'efr']],
+        ['Chamber Reverb', 'CHAMBER', ['pdel', 'size', 'dcy', 'mult', 'damp', 'lc', 'hc', 'shp', 'sprd', 'diff', 'spin', 'ecl', 'ecr', 'ell', 'elr']],
+        ['Plate Reverb', 'PLATE', ['pdel', 'size', 'dcy', 'mult', 'damp', 'lc', 'hc', 'att', 'sprd', 'diff', 'spin', 'ecl', 'ecr', 'efl', 'efr']],
+        ['Concert Reverb', 'CONCERT', ['pdel', 'size', 'dcy', 'mult', 'damp', 'lc', 'hc', 'shp', 'sprd', 'diff', 'depth', 'rfl', 'rfr', 'rfll', 'rflr', 'spin', 'crs']],
+        ['Ambiance', 'AMBI', ['pdel', 'size', 'dcy', 'tail', 'damp', 'diff', 'mod', 'lc', 'hc']],
+        ['VSS3 Reverb', 'VSS3', ['preset', 'load', 'erpdly', 'ertype', 'ersize', 'erpos', 'erbal', 'erlc', 'ercol', 'erlvl', 'rvtype', 'rvwide', 'rvpdly', 'dcy', 'diff', 'rvbal', 'rvlvl', 'ldcy', 'lmdcy', 'hmdcy', 'hdcy', 'hsoft', 'lxo', 'mxo', 'hxo', 'lshv', 'lsdmp', 'hcut', 'mtype', 'mrate', 'mwid', 'view']],
+        ['Vintage Room', 'V-ROOM', ['pdel', 'size', 'dcy', 'dens', 'erlvl', 'lmult', 'hmult', 'lc', 'hc', 'frz', 'erl', 'err', 'add', 'lvl']],
+        ['Vintage Reverb', 'V-REV', ['pdel', 'dcy', 'lmult', 'hmult', 'mod', 'lc', 'hc', 'out', 'trans']],
+        ['Vintage Plate', 'V-PLATE', ['pdel', 'dcy', 'lc', 'col']],
+        ['Blue Plate', 'BPLATE', ['pdel', 'size', 'dcy', 'mult', 'damp', 'lc', 'hc', 'xover', 'mdep', 'msdp', 'diff']],
+        ['Gated Reverb', 'GATED', ['pdel', 'att', 'dcy', 'dens', 'diff', 'sprd', 'lc', 'hfs', 'hsg']],
+        ['Reverse Reverb', 'REVERSE', ['pdel', 'rise', 'dcy', 'diff', 'sprd', 'lc', 'hfs', 'hsg']],
+        ['Delay/Reverb', 'DEL/REV', ['time', 'feed', 'fhc', 'dly', 'd2r', 'pdel', 'size', 'dcy', 'damp', 'rlc', 'i2r']],
+        ['Shimmer Reverb', 'SHIMMER', ['pdel', 'size', 'dcy', 'lc', 'hc', 'damp', 'shim', 'shine']],
+        ['Spring Reverb', 'SPRING', ['dcy', 'dens', 'low', 'high']],
+        ['Dimension CRS', 'DIMCRS', ['sw1', 'sw2', 'sw3', 'sw4', 'in', 'drysw']],
+        ['Stereo Chorus', 'CHORUS', ['lc', 'hc', 'wave', 'phase', 'mix', 'dlyl', 'dlyr', 'depl', 'depr', 'sprd', 'spd']],
+        ['Stereo Flanger', 'CHORUS', ['lc', 'hc', 'flc', 'fhc', 'mix', 'dlyl', 'dlyr', 'depl', 'depr', 'phase', 'spd', 'feed']],
+        ['Stereo Delay', 'ST-DL', ['time', 'mode', 'fact', 'pat', 'offset', 'feed', 'flc', 'fhc', 'lc', 'hc']],
+        ['UltraTap Delay', 'TAP-DL', ['time', 'rep', 'slp', 'fact', 'pdel', 'mode', 'wid', 'diff', 'lc', 'hc']],
+        ['Tape Delay', 'TAPE-DL', ['time', 'sust', 'drv', 'wf']],
+        ['OilCan Delay', 'OILCAN', ['time', 'sust', 'wb', 'tone']],
+        ['BBD Delay', 'BBD-DL', ['dly', 'feed']],
+        ['Stereo Pitch', 'PITCH', ['semi', 'cent', 'dly', 'lc', 'hc', 'mix']],
+        ['Dual Pitch', 'D-PITCH', ['semi1', 'cent1', 'dly1', 'pan1', 'lvl1', 'semi2', 'cent2', 'dly2', 'pan2', 'lvl2', 'lc', 'hc']]
+      ]
+    };
+
+    // Scroll position is remembered per tab, so coming back to the (long) mapping tab keeps your place.
+    const tabScroll = {};
+    let currentTab = 'converter';
     function showTab(name) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      document.querySelector(`.tab[onclick="showTab('${name}')"]`).classList.add('active');
-      document.getElementById('tab-' + name).classList.add('active');
+      if (name === currentTab) return;
+      tabScroll[currentTab] = window.scrollY;
+      document.querySelectorAll('.tab').forEach(t => {
+        const on = t.dataset.tab === name;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', on);
+      });
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
+      currentTab = name;
+      window.scrollTo(0, tabScroll[name] || 0);
     }
 
     function updateFields() {
@@ -613,98 +639,149 @@
       (PARAMS[type] || []).forEach(p => {
         const div = document.createElement('div');
         div.className = 'field';
-        div.innerHTML = `<label>${p.label}</label><input type="number" id="${p.id}" min="${p.min}" max="${p.max}" value="${p.value}">`;
+        div.innerHTML = `<label for="${p.id}">${p.label}</label><input type="number" id="${p.id}" min="${p.min}" max="${p.max}" value="${p.value}">`;
         row.appendChild(div);
       });
     }
 
     function clamp(val, min, max) { return Math.max(min, Math.min(max, val | 0)); }
+    function readInt(id, min, max) { return clamp(parseInt(document.getElementById(id).value), min, max); }
+    function hex2(b) { return b.toString(16).toUpperCase().padStart(2, '0'); }
 
     function midiToHex() {
       const type = document.getElementById('msgType').value;
-      let ch = clamp(parseInt(document.getElementById('channel').value) || 1, 1, 16) - 1;
+      const ch = clamp(parseInt(document.getElementById('channel').value) || 1, 1, 16) - 1;
       let bytes = [];
-      try {
-        switch (type) {
-          case 'cc':
-            bytes = [0xB0 + ch, clamp(parseInt(document.getElementById('ccNum').value), 0, 127), clamp(parseInt(document.getElementById('ccVal').value), 0, 127)];
-            break;
-          case 'pc':
-            bytes = [0xC0 + ch, clamp(parseInt(document.getElementById('prog').value), 0, 127)];
-            break;
-          case 'noteon':
-            bytes = [0x90 + ch, clamp(parseInt(document.getElementById('note').value), 0, 127), clamp(parseInt(document.getElementById('vel').value), 0, 127)];
-            break;
-          case 'noteoff':
-            bytes = [0x80 + ch, clamp(parseInt(document.getElementById('note').value), 0, 127), clamp(parseInt(document.getElementById('vel').value), 0, 127)];
-            break;
-          case 'pitch': {
-            const pitch = clamp(parseInt(document.getElementById('pitch').value), 0, 16383);
-            bytes = [0xE0 + ch, pitch & 0x7F, (pitch >> 7) & 0x7F];
-            break;
-          }
-          case 'aftertouch':
-            bytes = [0xD0 + ch, clamp(parseInt(document.getElementById('pressure').value), 0, 127)];
-            break;
-          case 'polyat':
-            bytes = [0xA0 + ch, clamp(parseInt(document.getElementById('note').value), 0, 127), clamp(parseInt(document.getElementById('pressure').value), 0, 127)];
-            break;
+      switch (type) {
+        case 'cc':         bytes = [0xB0 + ch, readInt('ccNum', 0, 127), readInt('ccVal', 0, 127)]; break;
+        case 'pc':         bytes = [0xC0 + ch, readInt('prog', 0, 127)]; break;
+        case 'noteon':     bytes = [0x90 + ch, readInt('note', 0, 127), readInt('vel', 0, 127)]; break;
+        case 'noteoff':    bytes = [0x80 + ch, readInt('note', 0, 127), readInt('vel', 0, 127)]; break;
+        case 'pitch': {
+          const pitch = readInt('pitch', 0, 16383);
+          bytes = [0xE0 + ch, pitch & 0x7F, (pitch >> 7) & 0x7F];
+          break;
         }
-        const hex = bytes.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
-        const el = document.getElementById('hexResult');
-        el.textContent = hex;
-        el.className = 'result success';
-      } catch (e) {
-        showError('hexResult', 'Erreur de conversion');
+        case 'aftertouch': bytes = [0xD0 + ch, readInt('pressure', 0, 127)]; break;
+        case 'polyat':     bytes = [0xA0 + ch, readInt('note', 0, 127), readInt('pressure', 0, 127)]; break;
+      }
+      const el = document.getElementById('hexResult');
+      el.textContent = bytes.map(hex2).join(' ');
+      el.className = 'result success';
+    }
+
+    // === Hex → MIDI ===
+    const CHANNEL_MSG = {
+      0x80: { name: 'Note Off', len: 2 },
+      0x90: { name: 'Note On', len: 2 },
+      0xA0: { name: 'Poly Aftertouch', len: 2 },
+      0xB0: { name: 'Control Change (CC)', len: 2 },
+      0xC0: { name: 'Program Change', len: 1 },
+      0xD0: { name: 'Channel Aftertouch', len: 1 },
+      0xE0: { name: 'Pitch Bend', len: 2 }
+    };
+    const SYSTEM_MSG = {
+      0xF1: { name: 'MTC Quarter Frame', len: 1 }, 0xF2: { name: 'Song Position', len: 2 },
+      0xF3: { name: 'Song Select', len: 1 }, 0xF6: { name: 'Tune Request', len: 0 },
+      0xF7: { name: 'End of SysEx', len: 0 }, 0xF8: { name: 'Timing Clock', len: 0 },
+      0xFA: { name: 'Start', len: 0 }, 0xFB: { name: 'Continue', len: 0 }, 0xFC: { name: 'Stop', len: 0 },
+      0xFE: { name: 'Active Sensing', len: 0 }, 0xFF: { name: 'System Reset', len: 0 }
+    };
+    const WING_SHOW_ACTIONS = { 1: 'GO', 2: 'PREV', 3: 'NEXT', 4: 'GO+PREV', 5: 'GO+NEXT' };
+
+    // Returns { bytes } or { error }. Accepts "B0 07 7F", "B0077F", "0xB0,0x07,0x7F"…
+    function parseHex(input) {
+      const raw = input.toUpperCase().replace(/\b0X/g, ' ');
+      const bad = raw.match(/[^0-9A-F\s,;:|-]/);
+      if (bad) return { error: `Hex invalide : caractère « ${bad[0]} »` };
+      const tokens = raw.split(/[\s,;:|-]+/).filter(Boolean);
+      if (!tokens.length) return { error: 'Entrez un code hex' };
+      const bytes = [];
+      for (const t of tokens) {
+        if (t.length > 2 && t.length % 2) return { error: `Hex invalide : « ${t} » a un nombre impair de chiffres — séparez les octets par des espaces` };
+        for (let i = 0; i < t.length; i += 2) bytes.push(parseInt(t.slice(i, i + 2), 16));
+      }
+      return { bytes };
+    }
+
+    // Splits a byte stream into MIDI messages (running status, SysEx, system common/realtime).
+    function splitMessages(bytes) {
+      const msgs = [];
+      let running = null;
+      let i = 0;
+      while (i < bytes.length) {
+        let status = bytes[i];
+        if (status < 0x80) {
+          if (running === null) {
+            const last = msgs[msgs.length - 1];
+            if (last && last.orphan) last.orphan.push(status); else msgs.push({ orphan: [status] });
+            i++;
+            continue;
+          }
+          status = running;
+        } else i++;
+        if (status === 0xF0) {
+          const end = bytes.indexOf(0xF7, i);
+          const stop = end === -1 ? bytes.length : end + 1;
+          msgs.push({ status, data: bytes.slice(i, stop), complete: end !== -1 });
+          i = stop;
+          running = null;
+          continue;
+        }
+        const spec = status < 0xF0 ? CHANNEL_MSG[status & 0xF0] : SYSTEM_MSG[status];
+        const len = spec ? spec.len : 0;
+        const data = [];
+        while (data.length < len && i < bytes.length && bytes[i] < 0x80) data.push(bytes[i++]);
+        msgs.push({ status, data, complete: data.length === len });
+        if (status < 0xF0) running = status;
+        else if (status < 0xF8) running = null; // system common cancels running status, realtime doesn't
+      }
+      return msgs;
+    }
+
+    function describeMessage(m) {
+      if (m.orphan) return `Octet(s) de données sans status : ${m.orphan.map(hex2).join(' ')} (un message commence par un octet ≥ 80)`;
+      const { status, data } = m;
+      if (status === 0xF0) return `System Exclusive — ${[status, ...data].map(hex2).join(' ')}${m.complete ? '' : ' (incomplet : F7 manquant)'}`;
+      if (status > 0xF0) {
+        const spec = SYSTEM_MSG[status];
+        const name = spec ? spec.name : `System 0x${hex2(status)} (non défini)`;
+        if (!m.complete) return `${name} (incomplet)`;
+        return data.length ? `${name} — ${data.map(hex2).join(' ')}` : name;
+      }
+      const type = status & 0xF0;
+      const channel = (status & 0x0F) + 1;
+      if (!m.complete) return `${CHANNEL_MSG[type].name} (incomplet) — Canal ${channel}`;
+      const [d1, d2] = data;
+      switch (type) {
+        case 0x80: return `Note Off — Canal ${channel} — Note ${d1} — Vélocité ${d2}`;
+        case 0x90: return `Note On — Canal ${channel} — Note ${d1} — Vélocité ${d2}` + (d2 === 0 ? ' (vélocité 0 = Note Off)' : '');
+        case 0xA0: return `Poly Aftertouch — Canal ${channel} — Note ${d1} — Pression ${d2}`;
+        case 0xB0: return `Control Change (CC) — Canal ${channel} — CC ${d1} — Valeur ${d2}`;
+        case 0xC0: return `Program Change — Canal ${channel} — Programme ${d1}` + wingProgramHint(channel, d1);
+        case 0xD0: return `Channel Aftertouch — Canal ${channel} — Pression ${d1}`;
+        case 0xE0: {
+          const val = d1 | (d2 << 7), offset = val - 8192;
+          return `Pitch Bend — Canal ${channel} — Valeur ${val} (${offset > 0 ? '+' : ''}${offset} / centre=8192)`;
+        }
       }
     }
 
+    function wingProgramHint(channel, prog) {
+      if (channel === 7) return `  →  Wing : Scene index ${prog + 1}`;
+      if (channel === 8) return `  →  Wing : Scene Tag #${prog + 1}`;
+      if (channel === 9 && WING_SHOW_ACTIONS[prog]) return `  →  Wing Show Control : ${WING_SHOW_ACTIONS[prog]}`;
+      return '';
+    }
+
     function hexToMidi() {
-      let raw = document.getElementById('hexInput').value.trim().toUpperCase();
-      raw = raw.replace(/0X/g, '').replace(/[^0-9A-F]/g, ' ').replace(/\s+/g, ' ').trim();
-      if (!raw) { showError('midiResult', 'Entrez un code hex'); return; }
-
-      const parts = raw.split(' ').filter(Boolean);
-      const bytes = [];
-      for (const p of parts) {
-        if (p.length > 2) {
-          for (let i = 0; i < p.length; i += 2) bytes.push(parseInt(p.substr(i, 2), 16));
-        } else bytes.push(parseInt(p, 16));
-      }
-      if (bytes.some(isNaN)) { showError('midiResult', 'Hex invalide'); return; }
-
-      const status = bytes[0];
-      const typeNibble = status & 0xF0;
-      const channel = (status & 0x0F) + 1;
-      let desc = '';
-
-      switch (typeNibble) {
-        case 0x80: desc = bytes.length >= 3 ? `Note Off — Canal ${channel} — Note ${bytes[1]} — Vélocité ${bytes[2]}` : `Note Off (incomplet)`; break;
-        case 0x90: desc = bytes.length >= 3 ? `Note On — Canal ${channel} — Note ${bytes[1]} — Vélocité ${bytes[2]}` : `Note On (incomplet)`; break;
-        case 0xA0: desc = bytes.length >= 3 ? `Poly Aftertouch — Canal ${channel} — Note ${bytes[1]} — Pression ${bytes[2]}` : `Poly Aftertouch (incomplet)`; break;
-        case 0xB0: desc = bytes.length >= 3 ? `Control Change (CC) — Canal ${channel} — CC ${bytes[1]} — Valeur ${bytes[2]}` : `CC (incomplet)`; break;
-        case 0xC0: desc = bytes.length >= 2 ? `Program Change — Canal ${channel} — Programme ${bytes[1]}` : `Program Change (incomplet)`; break;
-        case 0xD0: desc = bytes.length >= 2 ? `Channel Aftertouch — Canal ${channel} — Pression ${bytes[1]}` : `Aftertouch (incomplet)`; break;
-        case 0xE0:
-          if (bytes.length >= 3) {
-            const val = bytes[1] | (bytes[2] << 7);
-            desc = `Pitch Bend — Canal ${channel} — Valeur ${val} (centre=8192)`;
-          } else desc = `Pitch Bend (incomplet)`;
-          break;
-        case 0xF0: desc = `System Exclusive / Realtime — ${bytes.map(b => b.toString(16).toUpperCase().padStart(2,'0')).join(' ')}`; break;
-        default: desc = `Status inconnu 0x${status.toString(16).toUpperCase()}`;
-      }
-
-      if (typeNibble === 0xC0 && channel === 7) desc += '  →  Wing : Scene Change (index)';
-      if (typeNibble === 0xC0 && channel === 8) desc += `  →  Wing : Scene Tag #${bytes[1] + 1}`;
-      if (typeNibble === 0xC0 && channel === 9) {
-        const actions = {1:'GO', 2:'PREV', 3:'NEXT', 4:'GO+PREV', 5:'GO+NEXT'};
-        if (actions[bytes[1]]) desc += `  →  Wing Show Control : ${actions[bytes[1]]}`;
-      }
-
+      const parsed = parseHex(document.getElementById('hexInput').value);
+      if (parsed.error) { showError('midiResult', parsed.error); return; }
+      const msgs = splitMessages(parsed.bytes);
+      const lines = msgs.map(describeMessage);
       const el = document.getElementById('midiResult');
-      el.textContent = desc;
-      el.className = 'result success';
+      el.textContent = lines.length > 1 ? lines.map((l, i) => `${i + 1}. ${l}`).join('\n') : lines[0];
+      el.className = msgs.every(m => m.complete) ? 'result success' : 'result warning';
     }
 
     function showError(id, msg) {
@@ -718,15 +795,20 @@
       hexToMidi();
     }
 
-    function copyResult(id) {
-      const text = document.getElementById(id).textContent;
-      if (!text || text.includes('apparaîtra') || text.includes('Erreur') || text.includes('Entrez')) return;
-      navigator.clipboard.writeText(text).then(() => {
-        const btn = event.target;
-        const old = btn.textContent;
-        btn.textContent = '✓ Copié';
-        setTimeout(() => btn.textContent = old, 1200);
-      });
+    function copyResult(id, btn) {
+      const el = document.getElementById(id);
+      if (!el.classList.contains('success') && !el.classList.contains('warning')) return;
+      // navigator.clipboard is missing outside secure contexts: the Promise wrapper turns that into a rejection too.
+      Promise.resolve()
+        .then(() => navigator.clipboard.writeText(el.textContent))
+        .then(() => flashLabel(btn, '✓ Copié'), () => flashLabel(btn, '✗ Échec de la copie'));
+    }
+
+    function flashLabel(btn, text) {
+      if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+      btn.textContent = text;
+      clearTimeout(btn.flashTimer);
+      btn.flashTimer = setTimeout(() => btn.textContent = btn.dataset.label, 1200);
     }
 
     // === Interactive mapping ===
@@ -750,11 +832,14 @@
       showToast();
     }
 
-    function showToast(msg) {
+    let toastTimer;
+    function showToast(msg, isError) {
       const t = document.getElementById('toast');
       t.textContent = msg || 'Commande appliquée → Convertisseur';
+      t.classList.toggle('error', !!isError);
       t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 1800);
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), isError ? 3000 : 1800);
     }
 
     // === FX slot helpers (CH9-16, see note in the FX map-section) ===
@@ -762,7 +847,7 @@
       return clamp(parseInt(document.getElementById('fxSlot').value) || 1, 1, 16);
     }
     function fxChannel(slot) { return 9 + ((slot - 1) % 8); }
-    function fxIsGroupA(slot) { return slot <= 8; } // FX1-8 vs FX9-16 CC scheme
+    function fxIsGroupA(slot) { return slot <= 8; } // FX1-8 vs FX9-16 CC scheme; premium models only fit in FX1-8
     function fxParamCC(slot, idx) {
       // idx = 1-based parameter index, in the order it appears in the model's param list
       if (fxIsGroupA(slot)) {
@@ -782,6 +867,8 @@
       const paramRange = groupA ? 'CC15-31 (Param 1-17) puis CC44-58 (Param 18-32)' : 'CC73-95 (Param 1-23) puis CC102-111 (Param 24-33)';
       document.getElementById('fxSlotHint').textContent =
         `FX${slot} → Canal MIDI CH${ch} • CC${insertCC}=Insert • CC${mixCC}=Mix • CC${modelCC}=Modèle • Param : ${paramRange}`;
+      document.getElementById('fxPremiumHint').hidden = groupA;
+      document.getElementById('fxPremiumTable').classList.toggle('unavailable', !groupA);
     }
     function applyFxInsert(val) {
       const slot = fxCurrentSlot();
@@ -791,23 +878,101 @@
       const slot = fxCurrentSlot();
       applyWing('cc', fxChannel(slot), fxIsGroupA(slot) ? 13 : 71, val);
     }
-    function applyFxParam(idx, defaultVal) {
+    function applyFxParam(idx, premium) {
       const slot = fxCurrentSlot();
-      const cc = fxParamCC(slot, idx);
-      if (cc === null) {
-        showToast(`Param ${idx} non adressable en CC direct sur FX${slot} (utilise OSC /fx/N/…)`);
+      if (premium && !fxIsGroupA(slot)) {
+        showToast(`Effet premium : chargeable uniquement sur FX1-8 (slot actuel : FX${slot})`, true);
         return;
       }
-      applyWing('cc', fxChannel(slot), cc, defaultVal !== undefined ? defaultVal : 64);
+      const cc = fxParamCC(slot, idx);
+      if (cc === null) {
+        showToast(`Param ${idx} non adressable en CC direct sur FX${slot} (utilise OSC /fx/N/…)`, true);
+        return;
+      }
+      applyWing('cc', fxChannel(slot), cc, 64);
+    }
+
+    function renderFxModels() {
+      for (const [kind, models] of Object.entries(FX_MODELS)) {
+        const tbody = document.getElementById('fxModels-' + kind);
+        for (const [name, code, params] of models) {
+          const tr = document.createElement('tr');
+          tr.dataset.text = `${name} ${code} fx ${kind}`.toLowerCase();
+          tr.innerHTML = '<td></td><td><code></code></td><td></td><td class="param-cell"></td>';
+          tr.cells[0].textContent = name;
+          tr.querySelector('code').textContent = code;
+          tr.cells[2].textContent = params.length;
+          const cell = tr.cells[3];
+          if (!params.length) cell.innerHTML = '<span class="note" style="margin:0;">—</span>';
+          params.forEach((param, i) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'param-chip';
+            btn.dataset.fxParam = i + 1;
+            if (kind === 'premium') btn.dataset.premium = '';
+            btn.title = `Param ${i + 1} (${code})`;
+            btn.textContent = param;
+            cell.append(btn, ' ');
+          });
+          tbody.appendChild(tr);
+        }
+      }
     }
 
     function filterMap() {
       const q = document.getElementById('mapSearch').value.toLowerCase().trim();
-      document.querySelectorAll('.map-section tbody tr').forEach(tr => {
-        const text = (tr.dataset.text || '') + ' ' + tr.textContent.toLowerCase();
-        tr.style.display = !q || text.includes(q) ? '' : 'none';
+      document.querySelectorAll('.map-section').forEach(section => {
+        let visible = 0;
+        section.querySelectorAll('tbody tr').forEach(tr => {
+          const text = (tr.dataset.text || '') + ' ' + tr.textContent.toLowerCase();
+          const show = !q || text.includes(q);
+          tr.style.display = show ? '' : 'none';
+          if (show) visible++;
+        });
+        section.hidden = !visible;
       });
     }
+
+    // === Actions (delegated: tabs, mapping rows/buttons, hex examples, FX chips, copy buttons) ===
+    const ACTION_SELECTOR = '[data-tab], [data-wing], [data-hex], [data-fx], [data-fx-param], [data-copy]';
+    function runAction(el) {
+      const d = el.dataset;
+      if (d.tab) showTab(d.tab);
+      else if (d.wing) {
+        const [type, ...nums] = d.wing.split(',');
+        applyWing(type, ...nums.map(Number));
+      }
+      else if (d.hex) fillHex(d.hex);
+      else if (d.fx) {
+        const [what, val] = d.fx.split(',');
+        if (what === 'insert') applyFxInsert(+val); else applyFxMix(+val);
+      }
+      else if (d.fxParam) applyFxParam(+d.fxParam, 'premium' in d);
+      else if (d.copy) copyResult(d.copy, el);
+    }
+    document.addEventListener('click', (e) => {
+      const el = e.target.closest(ACTION_SELECTOR);
+      if (el) runAction(el);
+    });
+    // Mapping rows aren't buttons: make them reachable with Tab and triggerable with Enter / Space.
+    document.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr[data-wing]')) {
+        e.preventDefault();
+        runAction(e.target);
+      }
+    });
+
+    document.getElementById('btnGenerate').addEventListener('click', midiToHex);
+    document.getElementById('btnAnalyze').addEventListener('click', hexToMidi);
+    document.getElementById('hexInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') hexToMidi(); });
+    document.getElementById('msgType').addEventListener('change', () => { updateFields(); midiToHex(); });
+    // Live update: any edit in the MIDI → Hex card regenerates the hex (an empty field is left alone while typing).
+    // The type <select> is handled by its 'change' listener: its 'input' fires before updateFields() rebuilds the fields.
+    document.getElementById('midiCard').addEventListener('input', (e) => {
+      if (e.target.id !== 'msgType' && e.target.value !== '') midiToHex();
+    });
+    document.getElementById('fxSlot').addEventListener('input', updateFxSlotHint);
+    document.getElementById('mapSearch').addEventListener('input', filterMap);
 
     // === Number inputs: clamp to min/max + mouse-wheel to increment/decrement ===
     // Delegated on document so it also covers fields rebuilt by updateFields() (ccNum, ccVal, prog…).
@@ -818,7 +983,7 @@
     document.addEventListener('input', (e) => {
       const el = e.target;
       if (!isBoundedNumberInput(el)) return;
-      if (el.value === '' || el.value === '-') return; // let the user keep typing/clear the field
+      if (el.value === '') return; // let the user clear the field and keep typing
       const min = parseFloat(el.min), max = parseFloat(el.max);
       const v = clamp(parseFloat(el.value), min, max);
       if (String(v) !== el.value) el.value = v;
@@ -827,24 +992,35 @@
     document.addEventListener('blur', (e) => {
       const el = e.target;
       if (!isBoundedNumberInput(el)) return;
-      if (el.value === '' || isNaN(parseFloat(el.value))) el.value = el.min;
+      if (el.value === '' || isNaN(parseFloat(el.value))) {
+        el.value = el.min;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     }, true);
 
+    // Only a focused field reacts to the wheel, so scrolling the page over an input never changes it.
+    // Deltas are accumulated so a trackpad (many tiny events) moves about one step per mouse-wheel notch.
+    const WHEEL_STEP_PX = 50;
+    let wheelAcc = 0;
     document.addEventListener('wheel', (e) => {
       const el = e.target;
-      if (!isBoundedNumberInput(el)) return;
+      if (!isBoundedNumberInput(el) || el !== document.activeElement || e.deltaY === 0) return;
       e.preventDefault();
+      const dy = e.deltaMode === 0 ? e.deltaY : e.deltaY * WHEEL_STEP_PX; // deltaMode 1/2 = lines/pages
+      if (Math.sign(dy) !== Math.sign(wheelAcc)) wheelAcc = 0;
+      wheelAcc += dy;
+      if (Math.abs(wheelAcc) < WHEEL_STEP_PX) return;
+      wheelAcc = 0;
       const min = parseFloat(el.min), max = parseFloat(el.max);
       const step = el.step && el.step !== 'any' ? parseFloat(el.step) : 1;
       let v = parseFloat(el.value);
       if (isNaN(v)) v = min;
-      v = clamp(v + (e.deltaY < 0 ? step : -step), min, max);
-      el.value = v;
+      el.value = clamp(v + (dy < 0 ? step : -step), min, max);
       el.dispatchEvent(new Event('input', { bubbles: true }));
-      // Live feedback: re-generate the hex right away when scrolling a converter field.
-      if (el.closest('#tab-converter')) midiToHex();
     }, { passive: false });
 
+    renderFxModels();
+    document.querySelectorAll('tr[data-wing]').forEach(tr => tr.tabIndex = 0);
     updateFields();
     updateFxSlotHint();
   </script>
